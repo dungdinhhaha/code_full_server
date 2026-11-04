@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "author": "SMIOT Demo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht", "top": -130, "left": 300, "attrs": { "temperature": "29", "humidity": "78" } },
+    { "type": "wokwi-potentiometer", "id": "soil", "top": 80, "left": 300, "attrs": { "value": "550" } },
+    { "type": "wokwi-slide-switch", "id": "fault", "top": 230, "left": 300, "attrs": { "bounce": "0" } },
+    { "type": "wokwi-led", "id": "holdLed", "top": -110, "left": 500, "attrs": { "color": "red", "label": "SAFE HOLD" } },
+    { "type": "wokwi-led", "id": "relayLed", "top": 20, "left": 500, "attrs": { "color": "green", "label": "VIRTUAL RELAY" } },
+    { "type": "wokwi-led", "id": "stageLed", "top": 140, "left": 500, "attrs": { "color": "blue", "label": "STAGE EVENT" } },
+    { "type": "wokwi-text", "id": "instructions", "top": 300, "left": 455, "attrs": { "text": "Switch left: Node 2 stuck at 2.4%\nSwitch right: simulated sensor recovers\nPot: soil moisture for both nodes\nDaily photo event: every 15 sec = 1 simulated day\nStages advance by simulated day; blue LED confirms event\nNo image is captured in Wokwi\nGreen = virtual output enabled; red = safe HOLD" } }
+  ],
+  "connections": [
+    [ "esp:3V3", "dht:VCC", "red", [] ],
+    [ "dht:SDA", "esp:D15", "green", [] ],
+    [ "dht:GND", "esp:GND.1", "black", [] ],
+    [ "esp:3V3", "soil:VCC", "red", [] ],
+    [ "soil:SIG", "esp:D34", "green", [] ],
+    [ "soil:GND", "esp:GND.1", "black", [] ],
+    [ "fault:1", "esp:GND.1", "black", [] ],
+    [ "fault:2", "esp:D18", "green", [] ],
+    [ "fault:3", "esp:3V3", "red", [] ],
+    [ "esp:D22", "holdLed:A", "red", [] ],
+    [ "holdLed:C", "esp:GND.1", "black", [] ],
+    [ "esp:D23", "relayLed:A", "green", [] ],
+    [ "relayLed:C", "esp:GND.1", "black", [] ],
+    [ "esp:D21", "stageLed:A", "blue", [] ],
+    [ "stageLed:C", "esp:GND.1", "black", [] ]
+  ],
+  "serialMonitor": { "display": "auto", "newline": "lf", "convertEol": true }
+}

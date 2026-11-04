@@ -1,0 +1,13 @@
+logs:
+  - type: file
+    path: /opt/smiot/logs/incident_events.jsonl
+    service: smiot-smart-farm
+    source: python
+    sourcecategory: sourcecode
+  - type: file
+    path: /opt/smiot/logs/recovery/*.jsonl
+    service: smiot-smart-farm
+    source: smiot-recovery
+    tags:
+      - env:production
+      - project:smiot

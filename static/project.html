@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Projects - SMIOT System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{font-family:'Inter',sans-serif;box-sizing:border-box}
+body{background:#f4f6f9;margin:0;padding:0;color:#1a1a2e}
+.sidebar{width:200px;min-height:100vh;background:#fff;box-shadow:2px 0 12px rgba(0,0,0,.06);position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column}
+.sidebar-logo{display:flex;align-items:center;gap:10px;padding:20px 20px 16px;border-bottom:1px solid #f0f0f0;font-weight:700;font-size:18px;color:#1a1a2e}
+.sidebar-section{padding:12px 16px 4px;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;border-radius:8px;margin:2px 8px;color:#555;font-size:14px;font-weight:500;transition:background .15s,color .15s;text-decoration:none}
+.nav-item:hover{background:#f0f4ff;color:#4361ee}
+.nav-item.active{background:#eef1ff;color:#4361ee;font-weight:600}
+.main-content{margin-left:200px;padding:0 0 32px 0;min-height:100vh}
+.top-bar{background:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e8ecf0;position:sticky;top:0;z-index:50}
+.top-bar-title{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;color:#1a1a2e}
+.content-area{padding:24px 28px}
+.card{background:#fff;border-radius:16px;border:1px solid #e8ecf0;box-shadow:0 1px 4px rgba(30,41,59,.05);padding:18px 20px;transition:box-shadow .2s,transform .2s}
+.card:hover{box-shadow:0 6px 20px rgba(30,41,59,.10)}
+.stat-card{text-align:center;padding:22px 16px}
+.stat-card:hover{transform:translateY(-2px)}
+.stat-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:20px}
+.stat-val{font-size:28px;font-weight:800;color:#1a1a2e;line-height:1}
+.stat-label{font-size:11px;color:#aaa;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-top:6px}
+.proj-card{padding:0;overflow:hidden;cursor:pointer}
+.proj-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(30,41,59,.12)}
+.proj-thumb{height:140px;background:linear-gradient(135deg,#e0f2fe,#dbeafe);display:flex;align-items:center;justify-content:center;font-size:48px;position:relative;overflow:hidden;transition:transform .3s}
+.proj-card:hover .proj-thumb{transform:scale(1.03)}
+.proj-body{padding:16px 18px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.badge-active{background:#dcfce7;color:#16a34a}
+.badge-warning{background:#fef3c7;color:#d97706}
+.badge-offline{background:#f1f5f9;color:#94a3b8}
+.badge-admin{background:#fae8ff;color:#9333ea}
+.badge-operator{background:#dbeafe;color:#2563eb}
+.badge-viewer{background:#f1f5f9;color:#6b7280}
+.dot-pulse{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 1.8s ease infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.7)}60%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.timeline-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f0f0f0}
+.timeline-item:last-child{border-bottom:none}
+.timeline-dot{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.section-header{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div style="width:32px;height:32px;background:#4361ee;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900">SF</div>
+    <span>SMART FARM</span>
+  </div>
+  <div class="sidebar-section">Application</div>
+  <a href="#" class="nav-item">🏠 Home</a>
+  <a href="#" class="nav-item active">📂 Projects</a>
+  <a href="#" class="nav-item">📱 Device</a>
+  <a href="#" class="nav-item">🔌 Inverter</a>
+  <a href="#" class="nav-item">⚙️ PLC</a>
+  <div class="sidebar-section">Administration</div>
+  <a href="#" class="nav-item">🔑 Permission</a>
+  <a href="#" class="nav-item">⚙️ Settings</a>
+  <div style="flex:1"></div>
+  <div style="padding:16px 20px;border-top:1px solid #f0f0f0">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <img src="https://ui-avatars.com/api/?name=Admin&background=f0f4ff&color=4361ee" style="width:36px;height:36px;border-radius:50%;border:2px solid #e2e8f0">
+      <span style="font-size:13px;font-weight:600">System Admin</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:#ff4d4f;padding:8px;border-radius:8px;background:#fff1f0;border:1px solid #ffa39e">
+      <span>🚪</span><span style="font-size:13px;font-weight:800">ĐĂNG XUẤT</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main-content">
+  <!-- Topbar -->
+  <div class="top-bar">
+    <div class="top-bar-title">
+      <div style="width:32px;height:32px;background:#f0f4ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px">📂</div>
+      <span>Quản Lý Dự Án</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <!-- Project Selector -->
+      <div style="display:flex;align-items:center;gap:8px;background:#f8fafc;border:1px solid #e8ecf0;border-radius:10px;padding:6px 14px;cursor:pointer">
+        <span style="font-size:16px">🌱</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#1a1a2e">Greenhouse C</div>
+          <div style="font-size:10px;color:#16a34a;font-weight:600">● Online</div>
+        </div>
+        <i class="fa-solid fa-chevron-down" style="font-size:10px;color:#aaa;margin-left:6px"></i>
+      </div>
+      <!-- Status -->
+      <div style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;font-weight:700;letter-spacing:.06em;text-transform:uppercase">
+        SYSTEM: <span style="display:inline-flex;align-items:center;gap:5px;color:#16a34a"><span class="dot-pulse"></span> ACTIVE</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+
+    <!-- Stats Row -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px">
+      <div class="card stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#dbeafe,#eff6ff)">🏡</div>
+        <div class="stat-val">12</div>
+        <div class="stat-label">Total Farms</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#dcfce7,#f0fdf4)">📡</div>
+        <div class="stat-val">245</div>
+        <div class="stat-label">Sensors</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#fef3c7,#fffbeb)">⚙️</div>
+        <div class="stat-val">132</div>
+        <div class="stat-label">Devices</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#e0e7ff,#eef2ff)">💧</div>
+        <div class="stat-val">12.5<span style="font-size:14px;color:#aaa;font-weight:400"> m³</span></div>
+        <div class="stat-label">Water Today</div>
+      </div>
+    </div>
+
+    <!-- Section: Projects Grid -->
+    <div class="flex justify-between items-center mb-4">
+      <div class="section-header" style="margin-bottom:0;color:#4361ee">📂 PROJECTS</div>
+      <button style="background:#4361ee;color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer">
+        <i class="fa-solid fa-plus" style="margin-right:6px"></i> Thêm Project
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:28px">
+
+      <!-- Card 1: Active -->
+      <div class="card proj-card">
+        <div class="proj-thumb" style="background:linear-gradient(135deg,#d1fae5,#a7f3d0)">🌿</div>
+        <div class="proj-body">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:14px">Greenhouse A</div>
+            <span class="badge badge-active"><span class="dot-pulse" style="width:6px;height:6px"></span> Active</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i> Đà Lạt, Lâm Đồng</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#666;margin-bottom:10px">
+            <span>📡 24</span><span>⚙️ 2 PLC</span><span>📱 18</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;margin-bottom:12px">
+            <span>🕐 2 phút trước</span>
+            <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px">Health: 95%</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;background:#4361ee;color:#fff;border:none;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Open Dashboard</button>
+            <button style="background:#f0f4ff;color:#4361ee;border:1px solid #e8ecf0;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">⚙️</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Active -->
+      <div class="card proj-card">
+        <div class="proj-thumb" style="background:linear-gradient(135deg,#fef3c7,#fde68a)">🍅</div>
+        <div class="proj-body">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:14px">Greenhouse B</div>
+            <span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation" style="font-size:9px"></i> Warning</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i> Củ Chi, TP.HCM</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#666;margin-bottom:10px">
+            <span>📡 18</span><span>⚙️ 1 PLC</span><span>📱 12</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;margin-bottom:12px">
+            <span>🕐 5 phút trước</span>
+            <span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px">Health: 72%</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;background:#4361ee;color:#fff;border:none;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Open Dashboard</button>
+            <button style="background:#f0f4ff;color:#4361ee;border:1px solid #e8ecf0;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">⚙️</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Active -->
+      <div class="card proj-card">
+        <div class="proj-thumb" style="background:linear-gradient(135deg,#dbeafe,#93c5fd)">🌱</div>
+        <div class="proj-body">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:14px">Greenhouse C</div>
+            <span class="badge badge-active"><span class="dot-pulse" style="width:6px;height:6px"></span> Active</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i> Đà Lạt, Lâm Đồng</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#666;margin-bottom:10px">
+            <span>📡 32</span><span>⚙️ 3 PLC</span><span>📱 24</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;margin-bottom:12px">
+            <span>🕐 1 phút trước</span>
+            <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px">Health: 98%</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;background:#4361ee;color:#fff;border:none;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">Open Dashboard</button>
+            <button style="background:#f0f4ff;color:#4361ee;border:1px solid #e8ecf0;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">⚙️</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Offline -->
+      <div class="card proj-card" style="opacity:.6">
+        <div class="proj-thumb" style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0)">🏚️</div>
+        <div class="proj-body">
+          <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+            <div style="font-weight:700;font-size:14px">Farm D</div>
+            <span class="badge badge-offline">Offline</span>
+          </div>
+          <div style="font-size:12px;color:#888;margin-bottom:10px"><i class="fa-solid fa-location-dot" style="margin-right:4px"></i> Long An</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#666;margin-bottom:10px">
+            <span>📡 8</span><span>⚙️ 1 PLC</span><span>📱 6</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#aaa;margin-bottom:12px">
+            <span>🕐 3 giờ trước</span>
+            <span style="background:#f1f5f9;color:#94a3b8;padding:2px 8px;border-radius:10px;font-weight:700;font-size:10px">Offline</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;background:#94a3b8;color:#fff;border:none;padding:7px;border-radius:8px;font-size:12px;font-weight:600;cursor:not-allowed">Unavailable</button>
+            <button style="background:#f1f5f9;color:#94a3b8;border:1px solid #e8ecf0;padding:7px 12px;border-radius:8px;font-size:12px;cursor:pointer">⚙️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Activity + Permission -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <!-- Recent Activity -->
+      <div class="card">
+        <div class="section-header" style="color:#f59e0b">⚡ RECENT ACTIVITY</div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:#fef3c7;color:#d97706">⚠️</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">Nhiệt độ cao bất thường</div>
+            <div style="font-size:11px;color:#888">Greenhouse B — Node 2</div>
+          </div>
+          <div style="font-size:11px;color:#aaa;white-space:nowrap">2 phút</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:#fee2e2;color:#ef4444">🔴</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">Node mất kết nối</div>
+            <div style="font-size:11px;color:#888">Farm D — Gateway</div>
+          </div>
+          <div style="font-size:11px;color:#aaa;white-space:nowrap">5 phút</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:#dcfce7;color:#16a34a">✅</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">Bắt đầu tưới tự động</div>
+            <div style="font-size:11px;color:#888">Greenhouse A — Zone 1</div>
+          </div>
+          <div style="font-size:11px;color:#aaa;white-space:nowrap">12 phút</div>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:#dbeafe;color:#2563eb">🔄</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">Firmware updated</div>
+            <div style="font-size:11px;color:#888">Greenhouse C — PLC-01</div>
+          </div>
+          <div style="font-size:11px;color:#aaa;white-space:nowrap">30 phút</div>
+        </div>
+      </div>
+
+      <!-- Permission Summary -->
+      <div class="card">
+        <div class="section-header" style="color:#7c3aed">👥 USER PERMISSION SUMMARY</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="border-bottom:2px solid #f0f0f0;text-align:left">
+              <th style="padding:8px 0;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.05em;text-transform:uppercase">User</th>
+              <th style="padding:8px 0;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Farms</th>
+              <th style="padding:8px 0;font-size:11px;color:#aaa;font-weight:600;letter-spacing:.05em;text-transform:uppercase">Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #f8f8f8">
+              <td style="padding:10px 0;display:flex;align-items:center;gap:8px">
+                <img src="https://ui-avatars.com/api/?name=Nguyen+A&background=4361ee&color=fff&size=28" style="width:28px;height:28px;border-radius:50%">
+                <span style="font-weight:600">Nguyễn A</span>
+              </td>
+              <td style="padding:10px 0;color:#666">Farm A, B</td>
+              <td style="padding:10px 0"><span class="badge badge-admin">Admin</span></td>
+            </tr>
+            <tr style="border-bottom:1px solid #f8f8f8">
+              <td style="padding:10px 0;display:flex;align-items:center;gap:8px">
+                <img src="https://ui-avatars.com/api/?name=Tran+B&background=10b981&color=fff&size=28" style="width:28px;height:28px;border-radius:50%">
+                <span style="font-weight:600">Trần B</span>
+              </td>
+              <td style="padding:10px 0;color:#666">Greenhouse C</td>
+              <td style="padding:10px 0"><span class="badge badge-operator">Operator</span></td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;display:flex;align-items:center;gap:8px">
+                <img src="https://ui-avatars.com/api/?name=Le+C&background=6b7280&color=fff&size=28" style="width:28px;height:28px;border-radius:50%">
+                <span style="font-weight:600">Lê C</span>
+              </td>
+              <td style="padding:10px 0;color:#666">Farm D</td>
+              <td style="padding:10px 0"><span class="badge badge-viewer">Viewer</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

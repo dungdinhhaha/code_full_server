@@ -1,0 +1,14 @@
+nicegui
+python-docx
+openmeteo-requests
+pandas
+requests-cache
+retry-requests
+paho-mqtt
+psutil
+python-dotenv
+openpyxl
+pymongo>=4.0,<4.18
+ddtrace>=4.16.1,<5.0
+boto3>=1.34,<2
+qrcode[pil]>=8.0,<9

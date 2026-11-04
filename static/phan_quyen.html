@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phân Quyền - SMIOT System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        
+        body { 
+            background: #f4f6f9; 
+            margin: 0; 
+            padding: 0; 
+            color: #1a1a2e;
+        }
+        
+        /* Layout Sidebar cố định như main.py */
+        .sidebar {
+            width: 200px; 
+            min-height: 100vh;
+            background: #ffffff;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            z-index: 100;
+            display: flex; 
+            flex-direction: column;
+        }
+        
+        .sidebar-logo {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 700; 
+            font-size: 18px; 
+            color: #1a1a2e;
+        }
+        
+        .sidebar-section { 
+            padding: 12px 16px 4px; 
+            font-size: 11px;
+            color: #aaa; 
+            font-weight: 600; 
+            letter-spacing: 0.08em; 
+            text-transform: uppercase; 
+        }
+        
+        .nav-item {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            padding: 10px 20px; 
+            cursor: pointer; 
+            border-radius: 8px;
+            margin: 2px 8px; 
+            color: #555; 
+            font-size: 14px; 
+            font-weight: 500;
+            transition: background 0.15s, color 0.15s; 
+            text-decoration: none;
+        }
+        .nav-item:hover { background: #f0f4ff; color: #4361ee; }
+        .nav-item.active { background: #eef1ff; color: #4361ee; font-weight: 600; }
+        
+        /* Main Content dịch sang phải để không bị sidebar che */
+        .main-content {
+            margin-left: 200px;
+            padding: 0 0 32px 0;
+            min-height: 100vh;
+        }
+        
+        .top-bar {
+            background: white;
+            padding: 14px 28px;
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            border-bottom: 1px solid #e8ecf0;
+            position: sticky; 
+            top: 0; 
+            z-index: 50;
+        }
+        
+        .top-bar-title {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            font-size: 16px; 
+            font-weight: 700; 
+            color: #1a1a2e;
+        }
+        
+        .content-area { 
+            padding: 24px 28px; 
+        }
+        
+        /* Card style giống main.py */
+        .card {
+            background: white; 
+            border-radius: 16px;
+            border: 1px solid #e8ecf0;
+            box-shadow: 0 1px 4px rgba(30,41,59,0.05);
+            padding: 18px 20px;
+            transition: box-shadow 0.2s;
+        }
+        .card:hover { box-shadow: 0 6px 20px rgba(30,41,59,0.10); }
+        
+        /* Badges */
+        .badge {
+            display:inline-flex; 
+            align-items:center; 
+            gap:6px;
+            padding: 4px 10px; 
+            border-radius: 20px;
+            font-size: 11px; 
+            font-weight: 700; 
+            letter-spacing: 0.04em; 
+            text-transform:uppercase;
+        }
+        .badge-online  { background: #dcfce7; color: #16a34a; }
+        .badge-disabled { background: #fee2e2; color: #ef4444; }
+        
+        /* Custom Scrollbar cho danh sách user */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background-color: #94a3b8;
+        }
+        
+        /* Tree View Line */
+        .tree-line {
+            position: relative;
+        }
+        .tree-line::before {
+            content: "";
+            position: absolute;
+            top: -10px;
+            bottom: 0;
+            left: -15px;
+            width: 1px;
+            background-color: #e2e8f0;
+        }
+        .tree-line li {
+            position: relative;
+        }
+        .tree-line li::before {
+            content: "";
+            position: absolute;
+            top: 14px;
+            left: -15px;
+            width: 12px;
+            height: 1px;
+            background-color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar (Giống layout main.py) -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <div style="width:32px; height:32px; background:#4361ee; border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:900;">SF</div>
+            <span>SMART FARM</span>
+        </div>
+        <div class="sidebar-section">Application</div>
+        <a href="#" class="nav-item">🏠  Home</a>
+        <a href="#" class="nav-item">📱  Device</a>
+        <a href="#" class="nav-item">🔌  Inverter</a>
+        <a href="#" class="nav-item">⚙️  PLC</a>
+        <div class="sidebar-section">Administration</div>
+        <a href="#" class="nav-item active">🔑  Permission</a>
+        <a href="#" class="nav-item">⚙️  Settings</a>
+        <div style="flex:1"></div>
+        <div style="padding:16px 20px;border-top:1px solid #f0f0f0;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <img src="https://ui-avatars.com/api/?name=Admin&background=f0f4ff&color=4361ee" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e2e8f0;">
+                <span style="font-size:13px;font-weight:600;color:#1a1a2e;">System Admin</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:#ff4d4f;padding:8px;border-radius:8px;background:#fff1f0;border:1px solid #ffa39e;width:100%">
+                <span>🚪</span>
+                <span style="font-size:13px;font-weight:800;">ĐĂNG XUẤT</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="top-bar-title">
+                <div style="width:32px;height:32px;background:#f0f4ff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px">🔑</div>
+                <span>Cấu Hình Phân Quyền</span>
+            </div>
+            <div style="display:inline-flex;align-items:center;gap:8px;font-size:11px;color:#94a3b8;font-weight:700;letter-spacing:0.06em;text-transform:uppercase">
+                <span>SYSTEM STATUS:</span>
+                <div style="display:inline-flex;align-items:center;gap:6px;color:#16a34a;font-size:12px;font-weight:700">
+                    <span style="width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;"></span>
+                    <span>ACTIVE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            
+            <!-- Bố cục 2 cột (Trái: Danh sách, Phải: Form) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- CỘT TRÁI: Danh sách User -->
+                <div class="lg:col-span-1">
+                    <div class="card h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 style="font-weight:700; font-size:15px; color:#1a1a2e;">Danh sách User</h2>
+                            <button class="bg-[#4361ee] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#3b54da] transition-colors">
+                                <i class="fa-solid fa-plus mr-1"></i> Thêm
+                            </button>
+                        </div>
+                        
+                        <!-- Search nhanh user -->
+                        <div class="mb-3 relative">
+                            <i class="fa-solid fa-search absolute left-3 top-2.5 text-xs text-[#aaa]"></i>
+                            <input type="text" placeholder="Tìm kiếm user..." class="w-full border border-[#e8ecf0] rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#4361ee]">
+                        </div>
+                        
+                        <!-- Danh sách có thể cuộn nếu quá dài -->
+                        <div class="space-y-2 overflow-y-auto pr-2 custom-scrollbar" style="max-height: calc(100vh - 280px);">
+                            <!-- User Item (Active) -->
+                            <div class="flex items-center gap-3 p-3 border border-[#e8ecf0] rounded-xl hover:bg-[#f8fafc] cursor-pointer transition-colors border-l-4 border-l-[#4361ee] bg-[#f0f4ff]">
+                                <img src="https://ui-avatars.com/api/?name=Le+Van+A&background=4361ee&color=fff" class="w-10 h-10 rounded-full">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-sm">levana</div>
+                                    <div class="text-xs text-[#999]">Lê Văn A</div>
+                                </div>
+                                <span class="badge badge-online">Online</span>
+                            </div>
+                            
+                            <!-- User Item -->
+                            <div class="flex items-center gap-3 p-3 border border-[#e8ecf0] rounded-xl hover:bg-[#f8fafc] cursor-pointer transition-colors">
+                                <img src="https://ui-avatars.com/api/?name=Tran+B&background=10b981&color=fff" class="w-10 h-10 rounded-full">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-sm">tranthib</div>
+                                    <div class="text-xs text-[#999]">Trần Thị B</div>
+                                </div>
+                                <span class="badge badge-online">Online</span>
+                            </div>
+
+                            <!-- User Item (Offline) -->
+                            <div class="flex items-center gap-3 p-3 border border-[#e8ecf0] rounded-xl hover:bg-[#f8fafc] cursor-pointer transition-colors opacity-75">
+                                <img src="https://ui-avatars.com/api/?name=Nguyen+C&background=6b7280&color=fff" class="w-10 h-10 rounded-full">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-sm">nguyenvanc</div>
+                                    <div class="text-xs text-[#999]">Nguyễn Văn C</div>
+                                </div>
+                                <span class="badge badge-disabled">Offline</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CỘT PHẢI: Form Cấu Hình (Có thể cuộn toàn trang nếu form dài) -->
+                <div class="lg:col-span-2">
+                    <div class="card">
+                        <!-- Header Form -->
+                        <div class="flex justify-between items-center mb-6 border-bottom pb-4 border-[#f0f0f0]">
+                            <div>
+                                <h2 style="font-weight:700; font-size:15px; color:#1a1a2e;">Cấu Hình Quyền Truy Cập</h2>
+                                <div class="text-xs text-[#aaa] mt-1">Đang chỉnh sửa cho: <span class="font-semibold text-[#4361ee]">levana</span></div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="bg-[#e8ecf0] text-[#555] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#dde2e7] transition-colors">Hủy</button>
+                                <button class="bg-[#4361ee] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#3b54da] transition-colors shadow-lg shadow-[#4361ee]/20">Lưu Thay Đổi</button>
+                            </div>
+                        </div>
+
+                        <!-- Nội dung Form -->
+                        <div class="space-y-6">
+                            
+                            <!-- 1. Thông tin cơ bản -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-xs font-semibold text-[#aaa] uppercase tracking-wider block mb-1">Username</label>
+                                    <input type="text" value="levana" class="w-full border border-[#e8ecf0] rounded-lg px-3 py-2 text-sm bg-[#f8fafc] text-[#555]" readonly>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-[#aaa] uppercase tracking-wider block mb-1">Tên Hiển Thị</label>
+                                    <input type="text" value="Lê Văn A" class="w-full border border-[#e8ecf0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4361ee]">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-[#aaa] uppercase tracking-wider block mb-1">Mật Khẩu</label>
+                                    <input type="password" value="********" class="w-full border border-[#e8ecf0] rounded-lg px-3 py-2 text-sm bg-[#f8fafc]" readonly>
+                                </div>
+                                <div>
+                                    <label class="text-xs font-semibold text-[#aaa] uppercase tracking-wider block mb-1">Role Mặc Định</label>
+                                    <select class="w-full border border-[#e8ecf0] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4361ee]">
+                                        <option>Admin</option>
+                                        <option selected>Operator</option>
+                                        <option>Viewer</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 2. Quyền Chức Năng (Grid Cards) -->
+                            <div>
+                                <div class="text-xs font-semibold text-[#aaa] uppercase tracking-wider mb-3">Quyền Chức Năng</div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    
+                                    <!-- Module: Monitoring -->
+                                    <div class="border border-[#e8ecf0] rounded-xl p-4 hover:border-[#4361ee]/30 transition-colors">
+                                        <div class="font-semibold text-sm text-[#4361ee] mb-3 flex items-center gap-2">
+                                            <i class="fa-solid fa-desktop"></i> Monitoring
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Xem Dashboard
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Xem Sensor
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Xem Alarm
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Module: Control -->
+                                    <div class="border border-[#e8ecf0] rounded-xl p-4 hover:border-[#10b981]/30 transition-colors">
+                                        <div class="font-semibold text-sm text-[#10b981] mb-3 flex items-center gap-2">
+                                            <i class="fa-solid fa-sliders"></i> Device Control
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#10b981]">
+                                                <input type="checkbox" checked class="accent-[#10b981] w-4 h-4"> PLC Control
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#10b981]">
+                                                <input type="checkbox" class="accent-[#10b981] w-4 h-4"> Inverter ON/OFF
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#10b981]">
+                                                <input type="checkbox" checked class="accent-[#10b981] w-4 h-4"> Relay Control
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Module: Configuration -->
+                                    <div class="border border-[#e8ecf0] rounded-xl p-4 hover:border-[#f59e0b]/30 transition-colors">
+                                        <div class="font-semibold text-sm text-[#f59e0b] mb-3 flex items-center gap-2">
+                                            <i class="fa-solid fa-wrench"></i> Configuration
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#f59e0b]">
+                                                <input type="checkbox" class="accent-[#f59e0b] w-4 h-4"> Write Parameter
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#f59e0b]">
+                                                <input type="checkbox" class="accent-[#f59e0b] w-4 h-4"> Edit Automation
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Module: Admin -->
+                                    <div class="border border-[#e8ecf0] rounded-xl p-4 hover:border-[#ef4444]/30 transition-colors opacity-60">
+                                        <div class="font-semibold text-sm text-[#ef4444] mb-3 flex items-center gap-2">
+                                            <i class="fa-solid fa-lock"></i> Administration
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-2 text-sm cursor-not-allowed">
+                                                <input type="checkbox" class="accent-[#ef4444] w-4 h-4" disabled> User Management
+                                            </label>
+                                            <label class="flex items-center gap-2 text-sm cursor-not-allowed">
+                                                <input type="checkbox" class="accent-[#ef4444] w-4 h-4" disabled> Delete Data
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Projects Tree (Phạm vi truy cập) -->
+                            <div>
+                                <div class="text-xs font-semibold text-[#aaa] uppercase tracking-wider mb-3">Dự Án / Nhà Màng Được Gán</div>
+                                <div class="border border-[#e8ecf0] rounded-xl p-4">
+                                    <ul class="space-y-3">
+                                        <!-- Project Alpha -->
+                                        <li>
+                                            <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer hover:text-[#4361ee]">
+                                                <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Project Alpha
+                                            </label>
+                                            <ul class="ml-6 mt-2 space-y-2 tree-line">
+                                                <li>
+                                                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                        <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Greenhouse A (Cà chua)
+                                                    </label>
+                                                </li>
+                                                <li>
+                                                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                        <input type="checkbox" checked class="accent-[#4361ee] w-4 h-4"> Greenhouse B (Xà lách)
+                                                    </label>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                        <!-- Project Beta -->
+                                        <li>
+                                            <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer hover:text-[#4361ee]">
+                                                <input type="checkbox" class="accent-[#4361ee] w-4 h-4"> Project Beta
+                                            </label>
+                                            <ul class="ml-6 mt-2 space-y-2 tree-line">
+                                                <li>
+                                                    <label class="flex items-center gap-2 text-sm cursor-pointer hover:text-[#4361ee]">
+                                                        <input type="checkbox" class="accent-[#4361ee] w-4 h-4"> Greenhouse C (Dưa lưới)
+                                                    </label>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Bottom Actions trong Card -->
+                            <div class="border-t border-[#f0f0f0] pt-4 flex justify-between items-center">
+                                <button class="text-[#ef4444] text-sm font-semibold hover:bg-[#fee2e2] px-3 py-2 rounded-lg transition-colors">
+                                    <i class="fa-regular fa-trash-can mr-1"></i> Xóa User
+                                </button>
+                                <div class="flex gap-2">
+                                    <button class="bg-[#e8ecf0] text-[#555] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#dde2e7] transition-colors">Hủy</button>
+                                    <button class="bg-[#4361ee] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#3b54da] transition-colors shadow-lg shadow-[#4361ee]/20">Lưu Thay Đổi</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+</body>
+</html>

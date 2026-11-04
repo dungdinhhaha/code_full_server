@@ -1,0 +1,20 @@
+{
+  "DocumentName": "AWS-RunShellScript",
+  "InstanceIds": [
+    "i-00bf2d3591d3ee0a2"
+  ],
+  "Comment": "Enable Datadog systemd health checks for SMIOT server services",
+  "Parameters": {
+    "commands": [
+      "set -eu",
+      "install -d -o root -g dd-agent -m 0750 /etc/datadog-agent/conf.d/systemd.d",
+      "cat > /etc/datadog-agent/conf.d/systemd.d/conf.yaml <<'DDSYSTEMD'\ninit_config:\ninstances:\n  - unit_names:\n      - smiot.service\n      - mongod.service\n      - mosquitto.service\n      - nginx.service\n      - wokwi-bridge.service\n      - datadog-agent.service\nDDSYSTEMD",
+      "chown root:dd-agent /etc/datadog-agent/conf.d/systemd.d/conf.yaml",
+      "chmod 640 /etc/datadog-agent/conf.d/systemd.d/conf.yaml",
+      "datadog-agent configcheck",
+      "systemctl restart datadog-agent",
+      "systemctl is-active datadog-agent",
+      "datadog-agent status | sed -n '/systemd/,+18p'"
+    ]
+  }
+}

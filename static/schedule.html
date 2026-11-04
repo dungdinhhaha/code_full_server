@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Irrigation Scheduler - SCADA UI Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f4f6f9; 
+            margin: 0;
+            padding: 20px;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);
+        }
+        .industrial-shadow {
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.8), 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .pulse-cyan {
+            box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7);
+            animation: pulse-cyan 2s infinite;
+        }
+        @keyframes pulse-cyan {
+            0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5B5FEF',
+                        scada_dark: '#0f172a',
+                        scada_accent: '#06b6d4',
+                        success: '#10B981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="max-w-[1400px] mx-auto space-y-6">
+        
+        <!-- Header Page -->
+        <div class="flex items-center gap-4 px-2">
+            <div class="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-slate-100 text-3xl">
+                 📅
+            </div>
+            <div>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight">Irrigation Scheduler</h1>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-success"></span>
+                    Hệ thống lập lịch tưới tự động SCADA - Greenhouse A
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-6">
+            <!-- CARD 1: Scheduler (8) -->
+            <div class="col-span-12 lg:col-span-8 glass-card p-6 flex flex-col gap-6">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-primary/10 text-primary rounded-xl">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                        <h2 class="text-lg font-bold text-slate-800">Control Center</h2>
+                    </div>
+                    <button class="px-5 py-2.5 bg-primary text-white text-[11px] font-black rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-wider">
+                        + Add Schedule
+                    </button>
+                </div>
+
+                <!-- Quick Create Bar -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-5 bg-slate-50/80 rounded-2xl border border-slate-100">
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-1">Ngày tưới</label>
+                        <input type="date" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" value="2026-05-13">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-1">Giờ bắt đầu</label>
+                        <input type="time" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" value="06:00">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-1">Lượng nước (L)</label>
+                        <input type="number" placeholder="500" class="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all">
+                    </div>
+                    <div class="flex items-end">
+                        <button class="w-full h-[42px] bg-scada_dark text-white text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-slate-800 active:bg-black transition-all shadow-md">
+                            Create Schedule
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50">
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">ID</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Lịch trình</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Mục tiêu</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Trạng thái</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-t border-slate-50 hover:bg-slate-50/30 transition-colors group">
+                                <td class="px-6 py-4 text-xs font-bold text-slate-400">#001</td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-bold text-slate-700">Hôm nay</div>
+                                    <div class="text-[11px] font-black text-primary">06:00</div>
+                                </td>
+                                <td class="px-6 py-4 text-sm font-black text-slate-800">500L</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-success/10 text-success">Completed</span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button class="p-2 text-slate-400 hover:text-primary">✏️</button>
+                                        <button class="p-2 text-slate-400 hover:text-danger">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="border-t border-slate-50 hover:bg-slate-50/30 transition-colors group">
+                                <td class="px-6 py-4 text-xs font-bold text-slate-400">#002</td>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-bold text-slate-700">Hôm nay</div>
+                                    <div class="text-[11px] font-black text-primary">17:00</div>
+                                </td>
+                                <td class="px-6 py-4 text-sm font-black text-slate-800">300L</td>
+                                <td class="px-6 py-4 text-center">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-scada_accent/10 text-scada_accent pulse-cyan">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-scada_accent animate-ping"></span>
+                                        Running
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                                        <button class="p-2 text-slate-400 hover:text-primary">✏️</button>
+                                        <button class="p-2 text-slate-400 hover:text-danger">🗑️</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- CARD 2: Activity Timeline (4) -->
+            <div class="col-span-12 lg:col-span-4 glass-card p-6 flex flex-col gap-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-800">Activity Timeline</h2>
+                    <span class="px-2 py-0.5 bg-success/10 text-success text-[9px] font-black rounded-md animate-pulse uppercase tracking-widest">Live Monitoring</span>
+                </div>
+
+                <div class="relative pl-6 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                    <div class="relative">
+                        <div class="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-success ring-4 ring-white"></div>
+                        <div class="text-[10px] font-black text-slate-400 uppercase">06:00</div>
+                        <div class="text-sm font-bold text-slate-800">Pump Started</div>
+                        <div class="text-xs text-slate-500">Lịch #1 kích hoạt thành công</div>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-primary ring-4 ring-white"></div>
+                        <div class="text-[10px] font-black text-slate-400 uppercase">06:24</div>
+                        <div class="text-sm font-bold text-slate-800">Irrigation Completed</div>
+                        <div class="text-xs text-slate-500">Đã tưới đủ 502L nước.</div>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -left-[23px] top-1 w-4 h-4 rounded-full bg-scada_accent ring-4 ring-white pulse-cyan"></div>
+                        <div class="text-[10px] font-black text-scada_accent uppercase">17:00 (Hệ thống đang tưới)</div>
+                        <div class="text-sm font-bold text-slate-800">Lịch #2 Đang chạy</div>
+                        <div class="text-xs text-slate-500">Dữ liệu Flow Meter đang được Gateway xử lý...</div>
+                    </div>
+                </div>
+
+                <div class="mt-auto p-5 bg-scada_dark rounded-2xl text-white shadow-xl">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-2xl font-black">2/4</div>
+                            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lần tưới</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-black text-scada_accent">652L</div>
+                            <div class="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Lượng nước</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARD 3: Weekly Statistics (12) -->
+        <div class="glass-card p-6">
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800">Weekly Irrigation Overview</h2>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Theo dõi số lần tưới và khung giờ thực hiện</p>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase hover:bg-slate-50 transition-all shadow-sm">Tuần trước</button>
+                    <button class="px-3 py-1.5 bg-scada_dark text-white rounded-lg text-[10px] font-black uppercase shadow-md">Tuần này</button>
+                </div>
+            </div>
+
+            <!-- 7 Day Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                
+                <!-- Thứ 2 -->
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Thứ 2</div>
+                    <div class="text-xl font-black text-slate-800">2/2 <span class="text-[10px] text-slate-400 uppercase">Lần tưới</span></div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary rounded-full w-full"></div>
+                    </div>
+                    <div class="mt-4 space-y-1">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase">06:00 (20p)</div>
+                        <div class="text-[9px] font-bold text-slate-500 uppercase">17:00 (25p)</div>
+                    </div>
+                </div>
+
+                <!-- Thứ 3 -->
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Thứ 3</div>
+                    <div class="text-xl font-black text-slate-800">3/3 <span class="text-[10px] text-slate-400 uppercase">Lần tưới</span></div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary rounded-full w-full"></div>
+                    </div>
+                    <div class="mt-4 space-y-1">
+                        <div class="text-[9px] font-bold text-slate-500 uppercase">06:00 (20p)</div>
+                        <div class="text-[9px] font-bold text-slate-500 uppercase">12:00 (15p)</div>
+                        <div class="text-[9px] font-bold text-slate-500 uppercase">17:00 (25p)</div>
+                    </div>
+                </div>
+
+                <!-- Thứ 4 (Today) -->
+                <div class="p-4 rounded-2xl border border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm transition-all">
+                    <div class="text-[10px] font-black text-primary uppercase mb-2">Thứ 4 (Hôm nay)</div>
+                    <div class="text-xl font-black text-slate-800">1/2 <span class="text-[10px] text-slate-400 uppercase">Lần tưới</span></div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary rounded-full w-1/2"></div>
+                    </div>
+                    <div class="mt-4 space-y-1">
+                        <div class="text-[9px] font-bold text-slate-700 uppercase">✓ 06:00 (25p)</div>
+                        <div class="text-[9px] font-bold text-slate-400 uppercase">⏰ 17:00 (30p)</div>
+                    </div>
+                </div>
+
+                <!-- Thứ 5 -->
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Thứ 5</div>
+                    <div class="text-xl font-black text-slate-800">0/2 <span class="text-[10px] text-slate-400 uppercase">Lần tưới</span></div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-primary rounded-full w-0"></div>
+                    </div>
+                    <div class="mt-4 space-y-1">
+                        <div class="text-[9px] font-bold text-slate-400 uppercase">--:--</div>
+                    </div>
+                </div>
+
+                <!-- ... (Các ngày khác tương tự) -->
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Thứ 6</div>
+                    <div class="text-xl font-black text-slate-800">0/2</div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full"></div>
+                </div>
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Thứ 7</div>
+                    <div class="text-xl font-black text-slate-800">0/1</div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full"></div>
+                </div>
+                <div class="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all">
+                    <div class="text-[10px] font-black text-slate-400 uppercase mb-2">Chủ Nhật</div>
+                    <div class="text-xl font-black text-slate-800">0/1</div>
+                    <div class="mt-3 h-2 w-full bg-slate-100 rounded-full"></div>
+                </div>
+
+            </div>
+            
+            <div class="mt-8 p-10 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-3">
+                <div class="text-3xl">📈</div>
+                <div class="text-center">
+                    <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Biểu đồ Xu hướng Lượng nước (Trend Chart)</h3>
+                    <p class="text-xs font-medium text-slate-500 mt-1">Dùng để so sánh tổng lượng nước (Lít) tiêu thụ giữa các ngày trong tuần.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

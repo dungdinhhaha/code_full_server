@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLC Control Dashboard</title>
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#5B5FEF',
+                        success: '#22C55E',
+                        darkGray: '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f6f9; }
+
+        /* ── Glass Card ── */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1.5px solid rgba(255, 255, 255, 0.6);
+            border-radius: 24px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.08);
+        }
+        .shimmer-overlay {
+            position: absolute; top:0; right:0; bottom:0; left:0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+            transform: translateX(-100%);
+            animation: plc-shimmer 2.5s infinite;
+            pointer-events: none;
+            border-radius: 24px;
+        }
+        @keyframes plc-shimmer {
+            100% { transform: translateX(100%); }
+        }
+
+        /* ── Card Border Glow ── */
+        .card-online-border { border-color: rgba(34, 197, 94, 0.25); }
+        .card-offline-border { border-color: rgba(244, 63, 94, 0.25); }
+
+        /* ── Grid Layout ── */
+        .pump-control-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            width: 100%;
+        }
+        @media (min-width: 768px) {
+            .pump-control-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 14px;
+            }
+            .pump-control-grid > div:nth-child(7) {
+                grid-column: 1 / -1;
+                max-width: calc(50% - 7px);
+                margin: 0 auto;
+            }
+        }
+
+        /* ── Pump Row Card ── */
+        .pump-row-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .pump-row-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px -4px rgba(0,0,0,0.07);
+            border-color: #cbd5e1;
+        }
+        .pump-row-card:active {
+            transform: translateY(0px);
+        }
+        .pump-row-card-on {
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-color: rgba(34, 197, 94, 0.35);
+            box-shadow: 0 4px 12px -2px rgba(34, 197, 94, 0.1);
+        }
+        .pump-row-card-on:hover {
+            border-color: rgba(34, 197, 94, 0.5);
+            box-shadow: 0 8px 20px -4px rgba(34, 197, 94, 0.15);
+        }
+        .pump-row-card-loading {
+            background: #fffbeb;
+            border-color: rgba(245, 158, 11, 0.4);
+            animation: card-loading-pulse 1.5s infinite alternate;
+        }
+        .pump-row-card-mismatch {
+            background: #fff1f2;
+            border-color: rgba(244, 63, 94, 0.5);
+            animation: card-mismatch-flash 1.5s infinite alternate;
+        }
+        .pump-row-card-locked {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+        .pump-row-card-locked:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* ── Toggle Switch ── */
+        .toggle-track {
+            width: 52px;
+            height: 28px;
+            background: #cbd5e1;
+            border-radius: 14px;
+            position: relative;
+            transition: background 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        .toggle-knob {
+            width: 22px;
+            height: 22px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+                        box-shadow 250ms ease;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+        .toggle-on {
+            background: #22c55e;
+        }
+        .toggle-on .toggle-knob {
+            transform: translateX(24px);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 1px 4px rgba(0,0,0,0.1);
+        }
+        .toggle-loading {
+            background: #f59e0b;
+            animation: toggle-bg-pulse 1s infinite alternate;
+        }
+        .toggle-loading .toggle-knob {
+            animation: knob-loading-bounce 0.8s infinite alternate ease-in-out;
+        }
+        .toggle-mismatch {
+            background: #f43f5e;
+            animation: toggle-bg-pulse 0.8s infinite alternate;
+        }
+        .toggle-mismatch .toggle-knob {
+            background: #fecdd3;
+            transform: translateX(24px);
+        }
+        .toggle-locked {
+            background: #94a3b8;
+            opacity: 0.4;
+        }
+
+        /* ── Status Dots ── */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #cbd5e1;
+            flex-shrink: 0;
+            transition: background 200ms ease;
+        }
+        .status-dot-active {
+            background: #22c55e;
+            animation: dot-pulse 2s infinite ease-in-out;
+        }
+        .status-dot-loading {
+            background: #f59e0b;
+            animation: dot-pulse 0.6s infinite ease-in-out;
+        }
+        .status-dot-mismatch {
+            background: #f43f5e;
+            animation: dot-pulse 0.8s infinite ease-in-out;
+        }
+
+        /* ── PLC Online Indicator ── */
+        .plc-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 14px;
+            height: 14px;
+        }
+        .plc-indicator .dot-core {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: relative;
+            z-index: 1;
+        }
+        .plc-indicator .dot-ping {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: ping-ring 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        /* ── Header Icon Animation ── */
+        .header-icon-pulse {
+            display: inline-block;
+            animation: icon-energy 2s infinite alternate ease-in-out;
+        }
+        @keyframes icon-energy {
+            0% { opacity: 0.6; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* ── Keyframes ── */
+        @keyframes dot-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        @keyframes ping-ring {
+            0% { transform: scale(1); opacity: 0.75; }
+            75%, 100% { transform: scale(2.5); opacity: 0; }
+        }
+        @keyframes toggle-bg-pulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+        @keyframes knob-loading-bounce {
+            0% { transform: translateX(2px); }
+            100% { transform: translateX(18px); }
+        }
+        @keyframes card-loading-pulse {
+            0% { border-color: rgba(245, 158, 11, 0.2); }
+            100% { border-color: rgba(245, 158, 11, 0.6); }
+        }
+        @keyframes card-mismatch-flash {
+            0% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.15); }
+            100% { box-shadow: 0 0 18px rgba(244, 63, 94, 0.35); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Icons
+        const IconControlSystem = () => (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        );
+
+        const IconSpinner = () => (
+            <svg className="animate-spin h-5 w-5 text-amber-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        );
+
+        (() => {
+            const App = () => {
+                const [pumps, setPumps] = React.useState({
+                    pump1: 0, pump2: 0, pump3: 0, pump4: 0, pump5: 0, pump6: 0, pump7: 0
+                });
+                const [outputs, setOutputs] = React.useState({
+                    q0: 0, q1: 0, q2: 0, q3: 0, q4: 0, q5: 0, q6: 0
+                });
+                const [loading, setLoading] = React.useState({
+                    pump1: 0, pump2: 0, pump3: 0, pump4: 0, pump5: 0, pump6: 0, pump7: 0
+                });
+                const [isOnline, setIsOnline] = React.useState(0);
+                const [permissions, setPermissions] = React.useState([]);
+
+                React.useEffect(() => {
+                    window.updatePlcData = (apiData) => {
+                        setPumps(apiData.pumps);
+                        setOutputs(apiData.outputs);
+                        setIsOnline(apiData.plc_online);
+                        setLoading(apiData.loading || {});
+                        setPermissions(apiData.permissions || []);
+                    };
+                    return () => { window.updatePlcData = null; };
+                }, []);
+
+                // Khi vừa tải trang xong, báo cho Server biết để gửi dữ liệu mới nhất
+                React.useEffect(() => {
+                    if (window.emitEvent) {
+                        window.emitEvent('plc_ready', {});
+                    }
+                }, []);
+
+                // Handle click bật/tắt (gửi qua Socket)
+                const handleToggle = (pumpKey) => {
+                    // Nếu máy bơm đang trong trạng thái chờ phản hồi, không cho click tiếp
+                    if (loading[pumpKey] === 1) return;
+
+                    const newState = pumps[pumpKey] === 1 ? 0 : 1;
+                    const bitIndex = parseInt(pumpKey.replace('pump', '')) - 1;
+                    const payload = {};
+                    payload[`bit${bitIndex}`] = newState;
+
+                    if (window.emitEvent) {
+                        window.emitEvent('plc_control', payload);
+                    } else if (window.socket) {
+                        window.socket.emit('plc_control', payload);
+                    }
+                };
+
+                const pumpKeys = ['pump1', 'pump2', 'pump3', 'pump4', 'pump5', 'pump6', 'pump7'];
+                const activePumpCount = Object.values(pumps).filter(v => v === 1).length;
+
+                return (
+                    <div className="w-full max-w-full mx-auto p-4 md:px-8 md:py-6 flex flex-col gap-5">
+                        
+                        {/* Header */}
+                        <header className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-gray-100">
+                                <IconControlSystem />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 uppercase">ĐIỀU KHIỂN HỆ THỐNG PLC</h1>
+                                <p className="text-sm font-medium text-slate-400 mt-0.5">Quản lý và điều khiển trạng thái bơm</p>
+                            </div>
+                        </header>
+
+                        {/* Card chính */}
+                        <div className={`glass-card p-5 md:p-8 flex flex-col relative w-full overflow-hidden ${isOnline ? 'card-online-border' : 'card-offline-border'}`}>
+                            <div className="shimmer-overlay"></div>
+                            
+                            {/* Title bar + PLC Status */}
+                            <div className="flex justify-between items-center mb-5">
+                                <h2 className="text-lg md:text-xl font-bold text-slate-800 flex items-center gap-2.5">
+                                    <span className="header-icon-pulse text-xl">⚡</span>
+                                    BẢNG ĐIỀU KHIỂN BƠM
+                                </h2>
+                                <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full border shadow-sm ${isOnline ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                                    <span className="plc-indicator">
+                                        <span className={`dot-ping ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                        <span className={`dot-core ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                    </span>
+                                    <span className={`text-[10px] font-black tracking-widest uppercase ${isOnline ? 'text-green-600' : 'text-red-500'}`}>
+                                        {isOnline ? 'PLC TRỰC TUYẾN' : 'MẤT KẾT NỐI'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Grid bơm - Toggle Switch Cards */}
+                            <div className="pump-control-grid">
+                                {pumpKeys.map((key, index) => {
+                                    const isOn = pumps[key] === 1;
+                                    const isLoading = loading[key] === 1;
+                                    const pumpNumber = index + 1;
+                                    const hasPermission = permissions.includes(`pump_${pumpNumber}_control`);
+                                    
+                                    const isOutputOn = outputs[`q${index}`] === 1;
+                                    const isMismatch = isOn !== isOutputOn;
+                                    
+                                    // Card classes
+                                    let cardClass = 'pump-row-card';
+                                    if (isLoading) cardClass += ' pump-row-card-loading';
+                                    else if (!hasPermission) cardClass += ' pump-row-card-locked';
+                                    else if (isMismatch) cardClass += ' pump-row-card-mismatch';
+                                    else if (isOn) cardClass += ' pump-row-card-on';
+
+                                    // Toggle classes
+                                    let toggleClass = 'toggle-track';
+                                    if (isLoading) toggleClass += ' toggle-loading';
+                                    else if (!hasPermission) toggleClass += ' toggle-locked';
+                                    else if (isMismatch) toggleClass += ' toggle-mismatch';
+                                    else if (isOn) toggleClass += ' toggle-on';
+
+                                    // Status dot classes
+                                    let dotClass = 'status-dot';
+                                    if (isLoading) dotClass += ' status-dot-loading';
+                                    else if (isMismatch) dotClass += ' status-dot-mismatch';
+                                    else if (isOn && hasPermission) dotClass += ' status-dot-active';
+
+                                    return (
+                                        <div 
+                                            key={key}
+                                            className={cardClass}
+                                            onClick={() => {
+                                                if (isLoading) return;
+                                                if (hasPermission) {
+                                                    handleToggle(key);
+                                                } else if (window.emitEvent) {
+                                                    window.emitEvent('plc_locked_click', { pump: pumpNumber });
+                                                }
+                                            }}
+                                        >
+                                            {/* Left: Status dot + Pump name */}
+                                            <div className="flex items-center gap-3">
+                                                {!hasPermission && !isLoading ? (
+                                                    <span className="text-sm opacity-50">🔒</span>
+                                                ) : (
+                                                    <span className={dotClass}></span>
+                                                )}
+                                                <span className={`text-sm md:text-base font-bold transition-colors duration-200 ${
+                                                    isLoading ? 'text-amber-600' 
+                                                    : !hasPermission ? 'text-slate-400'
+                                                    : isMismatch ? 'text-rose-600'
+                                                    : isOn ? 'text-green-700' 
+                                                    : 'text-slate-600'
+                                                }`}>
+                                                    {isLoading ? `Bơm ${pumpNumber} — Đang chờ...` : `💧 Bơm ${pumpNumber}`}
+                                                </span>
+                                                {isLoading && <IconSpinner />}
+                                            </div>
+
+                                            {/* Right: Toggle switch */}
+                                            <div className={toggleClass}>
+                                                <div className="toggle-knob"></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Thống kê bơm đang chạy */}
+                            <div className="mt-5 flex items-center gap-2 text-sm font-semibold text-slate-500">
+                                <span className={`inline-flex w-2.5 h-2.5 rounded-full ${activePumpCount > 0 ? 'bg-green-500' : 'bg-slate-300'}`}></span>
+                                <span>{activePumpCount > 0 ? `${activePumpCount} bơm đang chạy` : 'Tất cả bơm đang tắt'} / 7</span>
+                            </div>
+    
+                            {/* Thông báo quyền hạn chi tiết */}
+                            {permissions.length > 0 && (
+                                <div className="mt-5 p-4 bg-white/60 border border-gray-100 rounded-xl text-sm w-full">
+                                    <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase mb-2">Quyền hạn điều khiển</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-green-500 text-base font-bold mt-0.5">✓</span>
+                                            <div>
+                                                <div className="font-bold text-slate-700 text-xs">Được phép:</div>
+                                                <div className="text-slate-500 text-xs mt-0.5">
+                                                    {pumpKeys.filter((_, i) => permissions.includes(`pump_${i+1}_control`)).length > 0
+                                                        ? pumpKeys.filter((_, i) => permissions.includes(`pump_${i+1}_control`)).map((_, i) => `Bơm ${i+1}`).join(', ')
+                                                        : 'Không có'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-red-400 text-base font-bold mt-0.5">✗</span>
+                                            <div>
+                                                <div className="font-bold text-slate-700 text-xs">Bị khóa:</div>
+                                                <div className="text-slate-500 text-xs mt-0.5">
+                                                    {pumpKeys.filter((_, i) => !permissions.includes(`pump_${i+1}_control`)).length > 0
+                                                        ? pumpKeys.filter((_, i) => !permissions.includes(`pump_${i+1}_control`)).map((_, i) => `Bơm ${i+1}`).join(', ')
+                                                        : 'Không có'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center text-xs font-black text-slate-400 tracking-widest uppercase flex items-center justify-center gap-2">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-green-500"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            Hệ thống ổn định
+                        </div>
+                    </div>
+                );
+            };
+
+            const root = document.getElementById('root');
+            if (root) {
+                ReactDOM.createRoot(root).render(<App />);
+            }
+        })();
+    </script>
+</body>
+</html>

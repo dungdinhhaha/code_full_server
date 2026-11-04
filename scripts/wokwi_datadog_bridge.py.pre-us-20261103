@@ -1,0 +1,329 @@
+"""Bridge Wokwi telemetry/stage events into SMIOT and mirror safe-mode results.
+
+Demo-only transport: HiveMQ's public MQTT broker is unauthenticated. Never send
+credentials or private farm data through it. Use an authenticated TLS broker for
+anything beyond this synthetic demonstration.
+"""
+
+from __future__ import annotations
+
+import json
+import hashlib
+import math
+import os
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import paho.mqtt.client as mqtt
+import requests
+from dotenv import load_dotenv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env", override=False)
+
+CHANNEL = os.getenv("WOKWI_CHANNEL", "greenhouse-a-7f38c2d1").strip()
+PUBLIC_MQTT_HOST = os.getenv("WOKWI_MQTT_HOST", "broker.hivemq.com").strip()
+PUBLIC_MQTT_PORT = int(os.getenv("WOKWI_MQTT_PORT", "1883"))
+LOCAL_MQTT_HOST = os.getenv("MQTT_HOST", "127.0.0.1").strip()
+LOCAL_MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+TELEMETRY_TOPIC = f"smiot/wokwi/{CHANNEL}/telemetry"
+TRACEABILITY_TOPIC = f"smiot/wokwi/{CHANNEL}/traceability"
+COMMAND_TOPIC = f"smiot/wokwi/{CHANNEL}/command"
+COMMAND_ACK_TOPIC = f"smiot/wokwi/{CHANNEL}/command/ack"
+TRACEABILITY_IMAGE_PATH = PROJECT_ROOT / "static" / "device_images" / "smiot_melon_growth_contact_sheet.jpg"
+MONITOR_ID = os.getenv("DD_MONITOR_ID", "").strip()
+WORKFLOW_ID = os.getenv("DD_WORKFLOW_ID", "").strip()
+POLL_SECONDS = 10
+
+DD_API_KEY = os.getenv("DD_API_KEY", "").strip()
+DD_APP_KEY = os.getenv("DD_APP_KEY", "").strip()
+DD_SITE = os.getenv("DD_SITE", "datadoghq.com").strip().removeprefix("https://").removesuffix("/")
+DD_BASE_URL = f"https://api.{DD_SITE}"
+DD_HEADERS = {
+    "DD-API-KEY": DD_API_KEY,
+    "DD-APPLICATION-KEY": DD_APP_KEY,
+}
+
+local_mqtt: mqtt.Client | None = None
+cloud_mqtt: mqtt.Client | None = None
+hold_active = False
+
+
+def create_mqtt_client(client_id: str) -> mqtt.Client:
+    try:
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=client_id)
+    except AttributeError:
+        return mqtt.Client(client_id=client_id)
+
+
+def validate_telemetry(payload: object) -> dict:
+    if not isinstance(payload, dict) or payload.get("farm_key") != "greenhouse_a":
+        raise ValueError("expected a JSON object for farm_key greenhouse_a")
+    nodes = payload.get("id6")
+    if not isinstance(nodes, dict):
+        raise ValueError("missing id6 node readings")
+    for node_name in ("node1", "node2"):
+        node = nodes.get(node_name)
+        if not isinstance(node, dict):
+            raise ValueError(f"missing {node_name} readings")
+        for key in ("at", "ah", "st", "sh", "sec"):
+            value = float(node[key])
+            if not math.isfinite(value):
+                raise ValueError(f"{node_name}.{key} must be a finite number")
+        if not 0 <= float(node["sh"]) <= 100:
+            raise ValueError(f"{node_name}.sh must be between 0 and 100")
+    payload["device_name"] = "Wokwi SMIOT Demo"
+    payload["source"] = "wokwi_synthetic"
+    payload["synthetic"] = True
+    payload["bridge_received_at"] = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return payload
+
+
+def on_cloud_connect(client, userdata, flags, reason_code, properties=None):
+    code = getattr(reason_code, "value", reason_code)
+    if code == 0:
+        client.subscribe(TELEMETRY_TOPIC, qos=1)
+        client.subscribe(TRACEABILITY_TOPIC, qos=1)
+        client.subscribe(COMMAND_ACK_TOPIC, qos=1)
+        print(f"Connected to public MQTT; listening on {TELEMETRY_TOPIC} and {TRACEABILITY_TOPIC}", flush=True)
+    else:
+        print(f"Public MQTT connection failed: {reason_code}", flush=True)
+
+
+def on_telemetry(client, userdata, message):
+    try:
+        payload = validate_telemetry(json.loads(message.payload.decode("utf-8")))
+        if local_mqtt is None or not local_mqtt.is_connected():
+            raise RuntimeError("local SMIOT MQTT broker is disconnected")
+        info = local_mqtt.publish("farm/sensor", json.dumps(payload, separators=(",", ":")), qos=1)
+        info.wait_for_publish(timeout=5)
+        if not info.is_published():
+            raise RuntimeError("local MQTT relay did not confirm publish")
+        print(
+            f"Relayed Wokwi sample: Node1 soil={payload['id6']['node1']['sh']}%, "
+            f"Node2 soil={payload['id6']['node2']['sh']}% -> farm/sensor",
+            flush=True,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError, ValueError, RuntimeError) as exc:
+        print(f"Rejected/failed Wokwi telemetry: {exc}", flush=True)
+
+
+def on_traceability(client, userdata, message):
+    """Forward synthetic stage metadata; the app serves the image from its image store."""
+    try:
+        event = json.loads(message.payload.decode("utf-8"))
+        if (
+            not isinstance(event, dict)
+            or event.get("event") != "daily_photo_capture_simulated"
+            or event.get("simulated") is not True
+            or event.get("farm_key") != "greenhouse_a"
+            or event.get("image_asset_id") != "smiot_melon_growth_contact_sheet_v1"
+        ):
+            raise ValueError("unexpected or non-synthetic traceability event")
+        day = int(event["simulated_day"])
+        panel = int(event["image_panel"])
+        if day < 1 or not 1 <= panel <= 5 or not isinstance(event.get("stage"), str):
+            raise ValueError("invalid simulated day, stage, or image panel")
+        if local_mqtt is None or not local_mqtt.is_connected():
+            raise RuntimeError("local SMIOT MQTT broker is disconnected")
+        if not TRACEABILITY_IMAGE_PATH.is_file():
+            raise FileNotFoundError(f"image asset is missing: {TRACEABILITY_IMAGE_PATH}")
+
+        metadata = {
+            **event,
+            "captured_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "image_content_type": "image/jpeg",
+        }
+        event_info = local_mqtt.publish(
+            "farm/traceability/event",
+            json.dumps(metadata, separators=(",", ":")),
+            qos=1,
+            retain=False,
+        )
+        event_info.wait_for_publish(timeout=10)
+        if not event_info.is_published():
+            raise RuntimeError("local MQTT broker did not confirm traceability event publish")
+        print(
+            f"Relayed synthetic growth image: lot={event['lot_id']} day={day} "
+            f"stage={event['stage']} panel={panel}; MongoDB receives image path metadata only",
+            flush=True,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError, ValueError, OSError, RuntimeError) as exc:
+        print(f"Rejected/failed Wokwi traceability event: {exc}", flush=True)
+
+
+def on_cloud_message(client, userdata, message):
+    if message.topic == TRACEABILITY_TOPIC:
+        on_traceability(client, userdata, message)
+    elif message.topic == TELEMETRY_TOPIC:
+        on_telemetry(client, userdata, message)
+    elif message.topic == COMMAND_ACK_TOPIC:
+        try:
+            ack = json.loads(message.payload.decode("utf-8"))
+            if ack.get("source") != "wokwi_synthetic" or ack.get("synthetic") is not True:
+                raise ValueError("refusing an unlabelled or non-synthetic device ACK")
+            if local_mqtt is None or not local_mqtt.is_connected():
+                raise RuntimeError("local SMIOT MQTT broker is disconnected")
+            info = local_mqtt.publish("farm/command/ack", json.dumps(ack, separators=(",", ":")), qos=1)
+            info.wait_for_publish(timeout=5)
+            if not info.is_published():
+                raise RuntimeError("local broker did not accept the device ACK")
+            print(f"Virtual device ACK recorded: command_id={ack.get('command_id')} output={ack.get('virtual_output')}", flush=True)
+        except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError, RuntimeError) as exc:
+            print(f"Rejected/failed virtual device ACK: {exc}", flush=True)
+
+
+def publish_command(action: str, reason: str, execution_id: str | None = None) -> None:
+    if cloud_mqtt is None or not cloud_mqtt.is_connected():
+        print(f"Cannot publish Wokwi command {action}: public MQTT is disconnected", flush=True)
+        return
+    identity = f"{action}|{WORKFLOW_ID}|{execution_id or reason}"
+    command_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:32]
+    command = {
+        "command_id": command_id,
+        "action": action,
+        "reason": reason,
+        "source": "datadog_safe_mode_workflow",
+        "workflow_id": WORKFLOW_ID,
+        "execution_id": execution_id,
+        "incident_id": execution_id,
+        "target": "wokwi_virtual_led",
+        "synthetic": True,
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+    }
+    if local_mqtt and local_mqtt.is_connected():
+        request = {**command, "ledger_state": "requested"}
+        local_mqtt.publish("farm/command/event", json.dumps(request), qos=1).wait_for_publish(timeout=5)
+    info = cloud_mqtt.publish(COMMAND_TOPIC, json.dumps(command), qos=1, retain=True)
+    info.wait_for_publish(timeout=5)
+    if not info.is_published():
+        if local_mqtt and local_mqtt.is_connected():
+            failure = {**command, "ledger_state": "failed", "error": "cloud MQTT publish was not acknowledged"}
+            local_mqtt.publish("farm/command/event", json.dumps(failure), qos=1).wait_for_publish(timeout=5)
+        print(f"Wokwi command {action} was not acknowledged by MQTT", flush=True)
+        return
+    if local_mqtt and local_mqtt.is_connected():
+        published = {**command, "ledger_state": "published"}
+        local_mqtt.publish("farm/command/event", json.dumps(published), qos=1).wait_for_publish(timeout=5)
+    print(f"Published Wokwi virtual output: {action} ({execution_id or reason})", flush=True)
+
+
+def get_monitor_state() -> str:
+    response = requests.get(
+        f"{DD_BASE_URL}/api/v1/monitor/{MONITOR_ID}",
+        headers=DD_HEADERS,
+        timeout=20,
+    )
+    response.raise_for_status()
+    return str(response.json().get("overall_state", "UNKNOWN")).upper()
+
+
+def recent_instances() -> list[dict]:
+    if not WORKFLOW_ID:
+        return []
+    response = requests.get(
+        f"{DD_BASE_URL}/api/v2/workflows/{WORKFLOW_ID}/instances",
+        headers=DD_HEADERS,
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json().get("data", [])
+
+
+def from_target_monitor(attributes: dict) -> bool:
+    handle = (attributes.get("source") or {}).get("handle") or {}
+    return str(handle.get("kind", "")).upper() == "MONITOR" and str(handle.get("id", "")) == MONITOR_ID
+
+
+def status_name(attributes: dict) -> str:
+    return str((attributes.get("instanceStatus") or {}).get("displayName", "")).lower()
+
+
+def main() -> int:
+    global local_mqtt, cloud_mqtt, hold_active
+
+    if not CHANNEL or not DD_API_KEY or not DD_APP_KEY or not MONITOR_ID:
+        raise RuntimeError("Set DD_API_KEY, DD_APP_KEY and DD_MONITOR_ID for the selected Datadog site")
+
+    # Establish a baseline so old successful workflow runs are never replayed.
+    existing_ids = {item.get("id") for item in recent_instances() if item.get("id")}
+    initial_state = get_monitor_state()
+
+    local_mqtt = create_mqtt_client(f"smiot-wokwi-local-{int(time.time())}")
+    local_mqtt.connect(LOCAL_MQTT_HOST, LOCAL_MQTT_PORT, keepalive=60)
+    local_mqtt.loop_start()
+
+    cloud_mqtt = create_mqtt_client(f"smiot-wokwi-bridge-{int(time.time())}")
+    cloud_mqtt.on_connect = on_cloud_connect
+    cloud_mqtt.on_message = on_cloud_message
+    cloud_mqtt.connect(PUBLIC_MQTT_HOST, PUBLIC_MQTT_PORT, keepalive=60)
+    cloud_mqtt.loop_start()
+
+    connection_deadline = time.monotonic() + 20
+    while time.monotonic() < connection_deadline:
+        if local_mqtt.is_connected() and cloud_mqtt.is_connected():
+            break
+        time.sleep(0.2)
+    if not local_mqtt.is_connected() or not cloud_mqtt.is_connected():
+        cloud_mqtt.loop_stop()
+        local_mqtt.loop_stop()
+        cloud_mqtt.disconnect()
+        local_mqtt.disconnect()
+        raise RuntimeError("Could not connect to both the local broker and the Wokwi public broker")
+
+    print(f"Wokwi channel: {CHANNEL}", flush=True)
+    print(f"Telemetry: {TELEMETRY_TOPIC}", flush=True)
+    print(f"Virtual output: {COMMAND_TOPIC}", flush=True)
+    print("This bridge relays synthetic sensor readings, generated JPEG stage assets, and virtual LED commands; no physical actuator commands.", flush=True)
+
+    if initial_state == "ALERT":
+        publish_command("HOLD", "monitor already Alert when bridge started")
+        hold_active = True
+
+    try:
+        while True:
+            try:
+                state_now = get_monitor_state()
+                for item in recent_instances():
+                    instance_id = str(item.get("id", ""))
+                    if not instance_id or instance_id in existing_ids:
+                        continue
+                    attrs = item.get("attributes", {})
+                    if from_target_monitor(attrs):
+                        current_status = status_name(attrs)
+                        if current_status == "success":
+                            publish_command("HOLD", "Datadog Node 2 flatline workflow succeeded", instance_id)
+                            hold_active = True
+                        elif current_status in {"failed", "error", "canceled"}:
+                            print(f"Datadog workflow {instance_id} ended as {current_status}; no Wokwi output command sent", flush=True)
+                    # Keep running instances visible until their terminal update.
+                    if status_name(attrs) not in {"running", "pending", ""}:
+                        existing_ids.add(instance_id)
+
+                if state_now == "ALERT" and not hold_active:
+                    # Fail safe if the workflow run is delayed: the virtual
+                    # pump indicator remains off while the monitor is Alert.
+                    publish_command("HOLD", "flatline monitor is Alert")
+                    hold_active = True
+                elif state_now == "OK" and hold_active:
+                    # Monitor recovery alone does not prove that a sensor is trustworthy.
+                    print("Monitor is OK, but HOLD remains latched pending explicit recovery verification.", flush=True)
+            except requests.RequestException as exc:
+                print(f"Datadog API polling error: {exc}", flush=True)
+            except (KeyError, TypeError, ValueError) as exc:
+                print(f"Unexpected Datadog response: {exc}", flush=True)
+            time.sleep(POLL_SECONDS)
+    except KeyboardInterrupt:
+        print("Stopped Wokwi bridge.", flush=True)
+        return 0
+    finally:
+        cloud_mqtt.loop_stop()
+        local_mqtt.loop_stop()
+        cloud_mqtt.disconnect()
+        local_mqtt.disconnect()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,46 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.env
+*.env.*
+*.secret
+*token*.txt
+*credentials*.env
+secrets.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local databases and runtime state
+*.db
+*.db-journal
+.cache.sqlite
+*.sqlite
+logs/
+server.log
+ngrok
+.nicegui/
+
+# Python/build artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+**/node_modules/
+build/
+*.bin
+*.elf
+*.map
+*.zip
+*.b64
+
+# Local analysis and scratch outputs
+scratch/
+reports/
+*.tmp
+*.bak
+outputs/**/evidence/
+outputs/**/qa_*/

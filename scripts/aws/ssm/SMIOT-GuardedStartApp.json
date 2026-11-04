@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Starts only the SMIOT application service when the app is inactive and host, MongoDB, and MQTT safety checks pass. It never restarts MongoDB or MQTT.",
+  "parameters": {
+    "IncidentId": {
+      "type": "String",
+      "description": "Stable Datadog incident or workflow execution identifier used for deduplication.",
+      "default": "manual",
+      "allowedPattern": "^[A-Za-z0-9._:-]{1,100}$"
+    },
+    "DryRun": {
+      "type": "String",
+      "description": "true checks guards without starting the app; false allows one guarded start.",
+      "default": "true",
+      "allowedValues": ["true", "false"]
+    }
+  },
+  "mainSteps": [
+    {
+      "name": "guardedStart",
+      "action": "aws:runShellScript",
+      "timeoutSeconds": 240,
+      "inputs": {
+        "runCommand": [
+          "#!/usr/bin/env bash\nset -Eeuo pipefail\nincident_id='{{ IncidentId }}'\ndry_run='{{ DryRun }}'\nemit() { local status=\"$1\" detail=\"$2\" utc; utc=\"$(date -u +%FT%TZ)\"; printf '{\"event\":\"smiot.guarded_recovery\",\"incident_id\":\"%s\",\"status\":\"%s\",\"detail\":\"%s\",\"timestamp\":\"%s\"}\\n' \"$incident_id\" \"$status\" \"$detail\" \"$utc\"; logger -t smiot-guarded-recovery -- \"incident_id=$incident_id status=$status detail=$detail\" 2>/dev/null || true; }\nrefuse() { emit refused \"$1\"; exit 2; }\n[[ \"$incident_id\" =~ ^[A-Za-z0-9._:-]{1,100}$ ]] || refuse invalid_incident_id\n[[ \"$dry_run\" == true || \"$dry_run\" == false ]] || refuse invalid_dry_run\ncommand -v flock >/dev/null 2>&1 || refuse flock_unavailable\ninstall -d -m 0750 /var/lock /var/lib/smiot/recovery\nexec 9>/var/lock/smiot-guarded-recovery.lock\nflock -n 9 || refuse another_recovery_is_running\nincident_key=\"$(printf '%s' \"$incident_id\" | sha256sum | awk '{print $1}')\"\nseen_file=\"/var/lib/smiot/recovery/$incident_key\"\nfind /var/lib/smiot/recovery -maxdepth 1 -type f -mtime +30 -delete\n[[ ! -e \"$seen_file\" ]] || { emit skipped duplicate_incident; exit 0; }\ndisk_used=\"$(df -P / | awk 'NR==2 {gsub(/%/,\"\",$5); print $5}')\"\n[[ \"$disk_used\" =~ ^[0-9]+$ ]] || refuse disk_usage_unavailable\n(( disk_used < 85 )) || refuse root_disk_at_or_above_85_percent\nsystemctl is-active --quiet mongod.service || refuse mongodb_not_active\nsystemctl is-active --quiet mosquitto.service || refuse mqtt_broker_not_active\nif systemctl is-active --quiet smiot.service; then emit skipped app_already_active; exit 0; fi\nlatest_timestamp_ms() { /opt/smiot/.venv/bin/python - <<'PY'\nimport os\nfrom dotenv import load_dotenv\nload_dotenv('/etc/smiot/app.env')\nfrom pymongo import MongoClient\nuri = os.environ['MONGODB_URI']\nclient = MongoClient(uri, appname='smiot-guarded-recovery-verifier', serverSelectionTimeoutMS=5000)\nclient.admin.command('ping')\ndb = client[os.getenv('MONGODB_DATABASE', 'smiot')]\nrow = db.telemetry.find_one({}, {'timestamp': 1}, sort=[('timestamp', -1)])\nif not row or row.get('timestamp') is None:\n    print('0')\nelse:\n    print(int(row['timestamp'].timestamp() * 1000))\nclient.close()\nPY\n}\nbaseline_ms=\"$(latest_timestamp_ms)\" || refuse mongodb_readback_failed\n[[ \"$baseline_ms\" =~ ^[0-9]+$ ]] || refuse invalid_telemetry_baseline\nif [[ \"$dry_run\" == true ]]; then emit would_start guards_passed; exit 0; fi\nprintf '%s\\n' \"$incident_id\" > \"$seen_file.tmp\"\nchmod 0640 \"$seen_file.tmp\"\nmv \"$seen_file.tmp\" \"$seen_file\"\nif ! systemctl start smiot.service; then emit action_failed systemctl_start_failed; exit 3; fi\napp_ready=false\nfor _ in $(seq 1 30); do if systemctl is-active --quiet smiot.service && curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8080/login; then app_ready=true; break; fi; sleep 1; done\n[[ \"$app_ready\" == true ]] || { emit verification_failed app_or_login_health_check_failed; exit 4; }\nfor _ in $(seq 1 18); do\n  current_ms=\"$(latest_timestamp_ms 2>/dev/null || printf '0')\"\n  if [[ \"$current_ms\" =~ ^[0-9]+$ ]] && (( current_ms > baseline_ms )); then\n    now_ms=\"$(date +%s%3N)\"\n    sample_age_ms=$(( now_ms - current_ms ))\n    if (( sample_age_ms >= 0 && sample_age_ms <= 180000 )); then emit recovered app_active_http_healthy_mongodb_ping_and_new_fresh_telemetry; exit 0; fi\n  fi\n  sleep 5\ndone\nemit verification_failed no_new_fresh_mongodb_telemetry_within_90_seconds\nexit 5"
+        ]
+      }
+    }
+  ]
+}

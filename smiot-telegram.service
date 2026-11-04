@@ -1,0 +1,15 @@
+[Unit]
+Description=SMIOT Telegram Bot Service
+After=network.target smiot.service
+
+[Service]
+Type=simple
+User=kkk
+WorkingDirectory=/home/kkk/server_test_backup_20260518
+ExecStart=/home/kkk/server_test_backup_20260518/venv/bin/python /home/kkk/server_test_backup_20260518/service/telegram_bot.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

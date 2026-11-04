@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendOnlyTheGuardedDocumentToTheSMIOTInstance",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": [
+        "arn:aws:ssm:ap-southeast-2:920235987407:document/SMIOT-GuardedStartApp",
+        "arn:aws:ec2:ap-southeast-2:920235987407:instance/i-00bf2d3591d3ee0a2"
+      ]
+    },
+    {
+      "Sid": "ReadCommandResultOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetCommandInvocation",
+        "ssm:ListCommandInvocations"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

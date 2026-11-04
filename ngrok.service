@@ -1,0 +1,12 @@
+[Unit]
+Description=Ngrok Tunnel Service
+After=network.target
+
+[Service]
+ExecStart=/home/kkk/server_test/ngrok http 8080 --domain=mummify-renounce-undertook.ngrok-free.dev
+Restart=on-failure
+User=kkk
+WorkingDirectory=/home/kkk/server_test
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Farm Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        /* ==================== RESET ==================== */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f6f9;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        /* ==================== TOP BAR ==================== */
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e8ecf0;
+            padding: 0 28px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .system-status-value {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #22c55e;
+            font-weight: 700;
+        }
+
+        /* ==================== PULSATING DOT ==================== */
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        .dot-green {
+            background: #22c55e;
+            animation: pulse-green 1.8s ease infinite;
+        }
+
+        .dot-blue {
+            background: #3b82f6;
+            animation: pulse-blue 1.8s ease infinite;
+        }
+
+        @keyframes pulse-green {
+            0% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            }
+
+            60% {
+                box-shadow: 0 0 0 7px rgba(34, 197, 94, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+            }
+        }
+
+        @keyframes pulse-blue {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+
+            60% {
+                box-shadow: 0 0 0 7px rgba(59, 130, 246, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        /* ==================== BADGE ==================== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .badge-online {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .badge-live {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .badge-offline {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        /* ==================== MAIN LAYOUT ==================== */
+        .page {
+            padding: 24px 28px;
+        }
+
+        /* Section header */
+        .section-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ==================== GRID ==================== */
+        .top-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1.35fr;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        /* ==================== CARD BASE ==================== */
+        .card {
+            background: #fff;
+            border: 1px solid #e8ecf0;
+            border-radius: 16px;
+            padding: 18px 20px;
+            box-shadow: 0 1px 4px rgba(30, 41, 59, 0.05);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .card-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .icon-purple {
+            background: #ede9fe;
+        }
+
+        .icon-blue {
+            background: #dbeafe;
+        }
+
+        .icon-orange {
+            background: #ffedd5;
+        }
+
+        /* ==================== NODE CARDS ==================== */
+        .zone-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .sensor-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .sensor-box {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .sensor-box-label {
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 4px;
+        }
+
+        .sensor-val {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: baseline;
+            gap: 3px;
+        }
+
+        .sensor-unit {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .sensor-bar {
+            width: 100%;
+            height: 3px;
+            border-radius: 2px;
+            background: #e2e8f0;
+            margin-top: 6px;
+        }
+
+        .sensor-fill {
+            height: 100%;
+            border-radius: 2px;
+        }
+
+        .node-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #94a3b8;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 10px;
+            margin-top: 6px;
+        }
+
+        .node-footer span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ==================== FLOW CARD ==================== */
+        .flow-lines {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .flow-line {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .flow-line-label {
+            font-size: 10px;
+            color: #94a3b8;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .flow-line-icon {
+            font-size: 18px;
+            margin-bottom: 4px;
+            color: #3b82f6;
+        }
+
+        .flow-line-val {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .flow-line-unit {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .flow-total-box {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .flow-total-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+        }
+
+        .flow-total-val {
+            font-size: 26px;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .flow-total-unit {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .flow-footer {
+            font-size: 11px;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+        }
+
+        /* ==================== WEATHER CARD ==================== */
+        .weather-card {
+            background: linear-gradient(155deg, #2563eb 0%, #3b82f6 60%, #60a5fa 100%);
+            border-radius: 16px;
+            padding: 22px;
+            color: white;
+        }
+
+        .weather-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .weather-city {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .weather-coords {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.65);
+            margin-top: 3px;
+        }
+
+        .weather-badge {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .weather-forecast-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+        }
+
+        .weather-forecast {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .forecast-box {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .forecast-hour {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .forecast-temp {
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .forecast-rain {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 4px;
+        }
+
+        .weather-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .weather-stat {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .weather-stat-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.65);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+        }
+
+        .weather-stat-val {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        /* ==================== AI CARD ==================== */
+        .ai-card {
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            border: none;
+        }
+
+        .ai-title {
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .ai-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .ai-row:last-child {
+            border-bottom: none;
+        }
+
+        .ai-row-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ai-row-val {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .button-tuoi {
+            background: #22c55e;
+            color: white;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+        }
+
+        .ai-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-top: 12px;
+        }
+
+        /* ========== BOTTOM GRID ========== */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+        <div class="topbar-logo">
+            <div class="logo-icon">SM</div>
+            Smart Monitoring
+        </div>
+        <div class="system-status">
+            SYSTEM STATUS:&nbsp;
+            <span class="system-status-value">
+                <span class="dot dot-green"></span>
+                ACTIVE
+            </span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="page">
+
+        <!-- ===== ROW 1 ===== -->
+        <div class="top-grid">
+
+            <!-- NODE 1 -->
+            <div>
+                <div class="section-label" style="color:#6366f1;">🌿 CẢM BIẾN NODE</div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon icon-purple">🌿</div>
+                            node1
+                        </div>
+                        <span class="badge badge-online"><span class="dot dot-green"></span>ONLINE</span>
+                    </div>
+
+                    <div class="zone-label">KHÔNG KHÍ</div>
+                    <div class="sensor-row">
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">🌡 NHIỆT ĐỘ</div>
+                            <div class="sensor-val">30.3 <span class="sensor-unit">°C</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:60%;background:#f97316;"></div>
+                            </div>
+                        </div>
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">💧 ĐỘ ẨM</div>
+                            <div class="sensor-val">65 <span class="sensor-unit">%</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:65%;background:#3b82f6;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="zone-label">ĐẤT TRỒNG</div>
+                    <div class="sensor-row">
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">🌱 NHIỆT ĐỘ</div>
+                            <div class="sensor-val">26 <span class="sensor-unit">°C</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:52%;background:#f97316;"></div>
+                            </div>
+                        </div>
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">💧 ĐỘ ẨM</div>
+                            <div class="sensor-val">50 <span class="sensor-unit">%</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:50%;background:#3b82f6;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="node-footer">
+                        <span>⚡ EC: 1.4 mS/cm</span>
+                        <span>🕐 Update: 11:23</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NODE 2 -->
+            <div>
+                <div class="section-label" style="color:#6366f1; visibility:hidden;">pad</div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon icon-purple">🌿</div>
+                            node2
+                        </div>
+                        <span class="badge badge-online"><span class="dot dot-green"></span>ONLINE</span>
+                    </div>
+
+                    <div class="zone-label">KHÔNG KHÍ</div>
+                    <div class="sensor-row">
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">🌡 NHIỆT ĐỘ</div>
+                            <div class="sensor-val">37.5 <span class="sensor-unit">°C</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:75%;background:#f97316;"></div>
+                            </div>
+                        </div>
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">💧 ĐỘ ẨM</div>
+                            <div class="sensor-val">65.1 <span class="sensor-unit">%</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:65%;background:#3b82f6;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="zone-label">ĐẤT TRỒNG</div>
+                    <div class="sensor-row">
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">🌱 NHIỆT ĐỘ</div>
+                            <div class="sensor-val">35.7 <span class="sensor-unit">°C</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:71%;background:#f97316;"></div>
+                            </div>
+                        </div>
+                        <div class="sensor-box">
+                            <div class="sensor-box-label">💧 ĐỘ ẨM</div>
+                            <div class="sensor-val">38.2 <span class="sensor-unit">%</span></div>
+                            <div class="sensor-bar">
+                                <div class="sensor-fill" style="width:38%;background:#3b82f6;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="node-footer">
+                        <span>⚡ EC: 280 mS/cm</span>
+                        <span>🕐 Update: 14:05</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FLOW METER -->
+            <div>
+                <div class="section-label" style="color:#f97316;">⚡ LƯU LƯỢNG</div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon icon-orange">⚡</div>
+                            Flow_Meter
+                        </div>
+                        <span class="badge badge-live"><span class="dot dot-blue"></span>LIVE</span>
+                    </div>
+
+                    <div class="flow-lines">
+                        <div class="flow-line">
+                            <div class="flow-line-label">LINE01</div>
+                            <div class="flow-line-icon">💧</div>
+                            <div class="flow-line-val">0</div>
+                            <div class="flow-line-unit">L/m</div>
+                        </div>
+                        <div class="flow-line">
+                            <div class="flow-line-label">LINE02</div>
+                            <div class="flow-line-icon">💧</div>
+                            <div class="flow-line-val">0</div>
+                            <div class="flow-line-unit">L/m</div>
+                        </div>
+                    </div>
+
+                    <div class="flow-total-box">
+                        <div>
+                            <div class="flow-total-label">📊 Tổng lưu lượng hiện tại</div>
+                            <div class="flow-total-val">22.72 <span class="flow-total-unit">L</span></div>
+                        </div>
+                        <span style="color:rgba(255,255,255,0.35);font-size:20px;">⇄</span>
+                    </div>
+
+                    <div class="flow-footer">
+                        <span>Update: 12:26</span>
+                        <span>S/N: 1870</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WEATHER CARD -->
+            <div>
+                <div class="section-label" style="color:#f59e0b;">☀️ THỜI TIẾT</div>
+                <div class="weather-card">
+                    <div class="weather-header">
+                        <div>
+                            <div class="weather-city">Thành phố Hồ Chí Minh</div>
+                            <div class="weather-coords">Vĩ độ: 10.862, 106.50S</div>
+                        </div>
+                        <div class="weather-badge"><span class="dot dot-blue"></span>Live</div>
+                    </div>
+
+                    <div class="weather-forecast-label">DỰ BÁO 3 GIỜ TỚI</div>
+                    <div class="weather-forecast">
+                        <div class="forecast-box">
+                            <div class="forecast-hour">12:00</div>
+                            <div class="forecast-temp">36°</div>
+                            <div class="forecast-rain">▲ 27%</div>
+                        </div>
+                        <div class="forecast-box">
+                            <div class="forecast-hour">13:00</div>
+                            <div class="forecast-temp">36.8°</div>
+                            <div class="forecast-rain">▲ 30%</div>
+                        </div>
+                        <div class="forecast-box">
+                            <div class="forecast-hour">14:00</div>
+                            <div class="forecast-temp">37.5°</div>
+                            <div class="forecast-rain">▲ 32%</div>
+                        </div>
+                    </div>
+
+                    <div class="weather-forecast-label">CHỈ SỐ TỔNG HỢP NGÀY</div>
+                    <div class="weather-stats">
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Bức xạ mặt trời</div>
+                            <div class="weather-stat-val">6755 <span style="font-size:12px;opacity:0.7">W/m²</span>
+                            </div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Thoát hơi nước (ET0)</div>
+                            <div class="weather-stat-val">6.15 <span style="font-size:12px;opacity:0.7">mm</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- end top-grid -->
+
+        <!-- ===== ROW 2 ===== -->
+        <div class="bottom-grid">
+
+            <!-- AI CARD -->
+            <div>
+                <div class="section-label" style="color:#6366f1;">ℹ AI ANALYSIS</div>
+                <div class="ai-card">
+                    <div class="ai-title">🤖 Dự đoán từ AI</div>
+
+                    <div class="ai-row">
+                        <span class="ai-row-label">💧 Lượng nước đề xuất</span>
+                        <span class="ai-row-val" style="color:#60a5fa;">688.9 ml</span>
+                    </div>
+                    <div class="ai-row">
+                        <span class="ai-row-label">🚿 Gợi ý từ AI</span>
+                        <button class="button-tuoi">Tưới</button>
+                    </div>
+                    <div class="ai-row">
+                        <span class="ai-row-label">🔄 Trạng thái van</span>
+                        <span class="ai-row-val" style="color:#94a3b8; font-size:12px;">━━ Không tưới</span>
+                    </div>
+
+                    <div class="ai-time">12:35:13</div>
+                </div>
+            </div>
+
+        </div><!-- end bottom-grid -->
+
+    </div><!-- end page -->
+
+    </body>
+
+</html>

@@ -1,0 +1,107 @@
+{
+  "format": "smiot-project-memory-v1",
+  "updated": "2026-11-04",
+  "language": "vi",
+  "project": {
+    "name": "SMIOT Smart Farm",
+    "repo": "D:/IOT Trung/code_full_server",
+    "description": "Ứng dụng quản lý nhà kính dưa lưới: telemetry MQTT, điều khiển tưới, phân tích chuỗi thời gian, hồ sơ lô và giám sát vận hành.",
+    "demo_url": "https://13-238-30-218.sslip.io/",
+    "primary_story": "MongoDB giữ bằng chứng vận hành; Datadog nối phát hiện, điều tra, phản ứng và hậu kiểm. Mục tiêu là chứng minh một luồng nhất quán, không ghép các demo độc lập."
+  },
+  "user_preferences": [
+    "Trao đổi bằng tiếng Việt, dùng từ ngữ đơn giản và tự nhiên.",
+    "Ưu tiên làm việc cụ thể và kiểm tra bằng chứng trước khi tuyên bố hoàn thành.",
+    "Trình bày theo câu chuyện vận hành, nhấn mạnh giá trị MongoDB và Datadog.",
+    "Không tuyên bố điểm thi chắc chắn hoặc tính năng chưa được xác minh.",
+    "Với dữ liệu mô phỏng, không kết luận cảm biến hoặc máy bơm vật lý đã hỏng hay được sửa."
+  ],
+  "architecture": {
+    "aws_region": "ap-southeast-2",
+    "ec2_instance": "i-00bf2d3591d3ee0a2",
+    "instance_type": "t3.small",
+    "deployment": "Một EC2 chạy SMIOT app, MongoDB Community, Mosquitto, Nginx và Datadog Agent; đây là failure domain đơn, chưa phải HA.",
+    "flow": [
+      "Publisher/gateway gửi telemetry qua MQTT/Mosquitto.",
+      "Ứng dụng kiểm tra rồi lưu dữ liệu và hồ sơ vận hành trong MongoDB.",
+      "Ứng dụng gửi metrics, structured logs và APM traces qua Datadog Agent đến Datadog US1.",
+      "Monitors kích hoạt điều tra hoặc workflow có kiểm soát; verifier đọc lại HTTP, ACK và telemetry MongoDB để xác nhận kết quả."
+    ],
+    "device_boundary": "Các diễn tập được ghi nhận là synthetic/virtual. Wokwi hoặc PLC ảo không chứng minh phần cứng ngoài đời đã chạy."
+  },
+  "mongodb": {
+    "deployment": "MongoDB Community 8.0.34 trên EC2, database smiot; không phải Atlas.",
+    "primary_store": true,
+    "timeseries": {
+      "collection": "telemetry",
+      "time_field": "timestamp",
+      "meta_field": "meta",
+      "meta_dimensions": ["farm_key", "node_id", "measurement_type"],
+      "sample_shape": {"timestamp": "ISODate", "meta": {"farm_key": "greenhouse_a", "node_id": 2, "measurement_type": "node"}, "readings": {"air_temp": 29.4, "soil_humidity": 41.2}, "source": {"synthetic": true, "sequence": 804}}
+    },
+    "business_collections": [
+      "operational_incidents",
+      "incident_telemetry_evidence",
+      "operational_decisions",
+      "action_ledger",
+      "lot_sensor_assignments",
+      "crop_cycles",
+      "traceability_events",
+      "crop_stage_media",
+      "schedules",
+      "schedule_logs"
+    ],
+    "indexes": "Indexes support farm/node/time telemetry queries, incident lifecycle queries, action history, schedules, lot-stage media; public token and usernames have unique constraints.",
+    "aggregation_story": "service/mongodb_showcase.py dùng $match, $setWindowFields/$shift, $group và completeness rules để tính khoảng trống mẫu, độ phủ ngày, GDD ngữ cảnh tích lũy và nhiệt trung bình trượt 7 ngày. Ngày thiếu dữ liệu không được tính như ngày đủ.",
+    "harvest_caveat": "Nhiệt nền 10°C và ngày trồng/đậu quả là giả định tham khảo, chưa hiệu chuẩn giống và điều kiện nông học. Chỉ gọi là cửa sổ kiểm tra thu hoạch, không gọi ngày hái chính xác.",
+    "benchmark": "Một lần đo: raw 240 mẫu, 28,533 bytes, 23.701 ms; aggregation 2 dòng, 301 bytes, 2.712 ms; payload trả về giảm khoảng 98.9% trong lượt này. Cả hai examined 4 documents; chưa phải kết luận tổng quát.",
+    "images": "Ảnh theo giai đoạn được lưu trong S3; MongoDB giữ metadata, khóa S3 và checksum.",
+    "backup_restore": "Backup logic S3 được restore thử vào collection tạm: telemetry 154618/154618 và operational_incidents 1/1. Chưa chứng minh EBS snapshot restore hoặc PITR.",
+    "limits": ["MongoDB và app cùng EC2 nên chung failure domain.", "Benchmark mới có một workload/lần đo.", "GDD chưa hiệu chuẩn nông học."]
+  },
+  "datadog": {
+    "site": "US1 - app.datadoghq.com",
+    "service": "smiot-smart-farm",
+    "environment_in_current_evidence": "demo; kiểm tra lại env thực tế trước khi mô tả live production.",
+    "dashboard": {"name": "SMIOT | Farm Operations & Recovery (US)", "url": "https://app.datadoghq.com/dashboard/nkc-685-vw8", "verified_widget_count": 8, "verified_on": "2026-11-04"},
+    "capabilities": ["Infrastructure/host metrics", "MongoDB integration/DBM metrics", "DogStatsD application metrics", "structured Logs", "APM/traces", "Monitors", "Bits Investigation", "Guarded Workflow / Private Action Runner", "SLO widget"],
+    "cardinality_rule": "Metric tags dùng chiều hữu hạn như farm/node/source. incident_id và command_id nằm trong logs, traces và MongoDB, không làm metric tags.",
+    "node2_incident": {
+      "incident_id": "INC-SMIOT-20261103T114321-BD19A22C",
+      "monitor_id": "339977691",
+      "symptom": "Publisher sequence vẫn tăng nhưng soil humidity Node 2 bị giữ ở 2.4%.",
+      "response": "Virtual outputs được HOLD; sau khi publisher trở lại bình thường, verifier nhận ACK và 7 mẫu mới dao động 39.3-41.0%, gửi CLEAR; monitor OK.",
+      "evidence_links": {"monitor": "https://app.datadoghq.com/monitors/339977691", "bits": "https://app.datadoghq.com/bits-ai/investigations/3de8802a-d62c-4983-b2d9-07c7dc3bdf1c?investigation-view__mode=tree"},
+      "limits": "Synthetic telemetry và PLC ảo; Bits hỗ trợ điều tra nhưng app verifier/Mongo readback/ACK/monitor chứng minh recovery. Không khẳng định cảm biến thật hỏng hoặc được sửa. Lot mapping là demo."
+    },
+    "ec2_recovery": {
+      "monitor_id": "340356283",
+      "workflow": "SMIOT EC2 Guarded Web Recovery",
+      "workflow_id": "b83453ff-e122-4148-9519-e698f2effa7f",
+      "execution_id": "41135755-2edd-429b-9c0f-9e73ae7c43a1",
+      "action": "Sau pre-check MongoDB/MQTT/disk, chỉ chạy systemctl start smiot.service; không restart cả EC2, MongoDB hay MQTT.",
+      "verification": "Workflow output verified, HTTP 200 và telemetry MongoDB mới.",
+      "evidence_link": "https://app.datadoghq.com/workflow/b83453ff-e122-4148-9519-e698f2effa7f?debugItem=step%3ARun_Predefined_Script&instance=41135755-2edd-429b-9c0f-9e73ae7c43a1",
+      "limits": "Ca độc lập với Node2. Success log chưa được xác nhận là index trong Datadog Logs."
+    },
+    "cost_and_slo": "Cost Explorer/Datadog Cloud Cost actual reconciliation chưa được chứng minh. SLO cần nêu snapshot theo thời điểm, không gọi là SLA dài hạn nếu chưa rà định nghĩa và history."
+  },
+  "competition": {
+    "judging_dimensions": ["Bài toán và vận hành thực tế", "MongoDB architecture/implementation", "Datadog observability", "Phát hiện-điều tra-xử lý trọn vẹn", "Độ tin cậy/bảo trì", "Sáng tạo và AI hợp lý", "Tác động vận hành", "MVP, tài liệu, video, thuyết trình"],
+    "required_narrative": "Một sự cố có mã và bằng chứng xuyên suốt khi có liên hệ xác thực: telemetry → monitor → logs/traces/context → quyết định/hành động → ACK → dữ liệu xác nhận phục hồi.",
+    "rules": ["Không gộp Node2 incident và EC2 app recovery thành cùng incident.", "Không nối incident với lot nếu farm/node/time assignment không khớp.", "Không khẳng định tiết kiệm nước/chi phí nếu chưa đo actual.", "Khai báo synthetic/seed data, thư viện, code có sẵn và công cụ AI theo thể lệ."]
+  },
+  "key_files": {
+    "architecture_document": "outputs/20261104_smiot_story_pack/Kien_truc_giai_phap_MongoDB_Datadog.md",
+    "node2_evidence": "docs/INC-SMIOT-20261103T114321-BD19A22C_EVIDENCE.md",
+    "guarded_recovery_design": "docs/DATADOG_GUARDED_RECOVERY.md",
+    "backup_restore_evidence": "docs/MONGODB_BACKUP_RESTORE_DRILL_20261103.md",
+    "architecture_code": ["main.py", "service/auth.py", "service/mongodb_store.py", "service/mongodb_showcase.py", "service/observability.py", "service/datadog_metrics.py", "service/operational_evidence.py"]
+  },
+  "security": {
+    "contains_secrets": false,
+    "never_store": ["Datadog API/application keys", "MongoDB URI/password", "AWS credentials/session tokens/private keys", "Wokwi/Gemini/Telegram tokens"],
+    "response_if_secret_exposed": "Không đưa secret vào memory; nếu bị lộ thì thu hồi và tạo secret mới."
+  },
+  "handoff_instruction": "Đọc file này trước khi tiếp tục dự án. Xác minh trạng thái live trước khi khẳng định; giữ tách biệt hai kịch bản sự cố; giữ ranh giới synthetic; cập nhật bộ nhớ khi có bằng chứng mới."
+}

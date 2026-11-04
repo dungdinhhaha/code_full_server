@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'build/smiot_demo.ino.bin'
+elf = 'build/smiot_demo.ino.elf'

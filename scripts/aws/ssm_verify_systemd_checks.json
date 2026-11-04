@@ -1,0 +1,16 @@
+{
+  "DocumentName": "AWS-RunShellScript",
+  "InstanceIds": [
+    "i-00bf2d3591d3ee0a2"
+  ],
+  "Comment": "Verify Datadog Agent and systemd check after configuration",
+  "Parameters": {
+    "commands": [
+      "set -eu",
+      "systemctl show datadog-agent -p ActiveState -p SubState -p NRestarts -p ExecMainStatus",
+      "systemctl is-active smiot.service mongod.service mosquitto.service nginx.service wokwi-bridge.service",
+      "datadog-agent status | grep -A16 -i 'systemd check'",
+      "journalctl -u datadog-agent -n 40 --no-pager | grep -Ei 'systemd|error|failed|started|active' || true"
+    ]
+  }
+}
