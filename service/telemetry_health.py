@@ -31,6 +31,7 @@ _last_flatline_state: dict[tuple[str, int, str], bool] = {}
 _last_domain: dict[tuple[str, int], str | None] = {}
 _last_mismatch: dict[tuple[str, int], bool] = {}
 _open_false_offline: dict[tuple[str, int], str] = {}
+_false_offline_reconciled: set[tuple[str, int]] = set()
 _broker_last_msg: dict[tuple[str, int], float] = {}
 _FLATLINE_SAMPLE_COUNT = 10
 _FLATLINE_EPSILON = 0.01
@@ -389,13 +390,50 @@ def _track_false_offline(farm: str, node_id: int, result: dict[str, Any], comput
                                  "reason": result["reason"]},
                         monitor_id=FALSE_OFFLINE_MONITOR_ID,
                         workflow_id=FALSE_OFFLINE_WORKFLOW_ID)
-            elif key in _open_false_offline and computed.get("status") == "ONLINE":
+                _false_offline_reconciled.discard(key)
+            elif computed.get("status") == "ONLINE":
                 stamp = parse_datetime(received_at)
-                if incident_lifecycle.close_incident(_open_false_offline[key], recovery_evidence={
+                incident_id = _open_false_offline.get(key)
+                if not incident_id and key not in _false_offline_reconciled:
+                    # The in-memory map is lost on an app restart. Reattach to an
+                    # active Mongo incident once per healthy scope, then close it
+                    # only from the current fresh Mongo sample and reconciled UI.
+                    from service.mongodb_store import collection
+                    active = collection("operational_incidents").find_one(
+                        {"kind": "false_offline", "farm_key": farm, "node_id": int(node_id),
+                         "status": {"$in": ["open", "holding", "recovering"]}},
+                        {"_id": 1}, sort=[("opened_at", -1)])
+                    incident_id = str(active["_id"]) if active else None
+                    if incident_id:
+                        _open_false_offline[key] = incident_id
+                if incident_id:
+                    evidence = {
                         "mongo_newest_received_at": stamp.isoformat() if stamp else None,
                         "age_s": computed.get("age_s"), "display_now": result["display"],
-                        "computed_now": "ONLINE"}):
-                    _open_false_offline.pop(key, None)
+                        "computed_now": "ONLINE", "display_mismatch": False,
+                        "last_sequence": computed.get("last_sequence"),
+                        "boot_id": computed.get("boot_id"),
+                    }
+                    if incident_lifecycle.close_incident(incident_id, recovery_evidence=evidence):
+                        _open_false_offline.pop(key, None)
+                        _false_offline_reconciled.add(key)
+                        _log_json(logging.INFO, {
+                            "event": "smiot_false_offline_incident_recovered", "incident_id": incident_id,
+                            "farm": farm, "node": int(node_id), "mongo_status": "ONLINE",
+                            "age_s": computed.get("age_s"), "last_sequence": computed.get("last_sequence"),
+                        })
+                    else:
+                        # Drop a stale in-memory reference only after confirming
+                        # that the same incident is no longer active in MongoDB.
+                        from service.mongodb_store import collection
+                        still_active = collection("operational_incidents").find_one(
+                            {"_id": incident_id,
+                             "status": {"$in": ["open", "holding", "recovering"]}}, {"_id": 1})
+                        if not still_active:
+                            _open_false_offline.pop(key, None)
+                            _false_offline_reconciled.add(key)
+                else:
+                    _false_offline_reconciled.add(key)
         except Exception:
             LOGGER.warning("false_offline incident tracking failed", exc_info=True)
         return _open_false_offline.get(key)
