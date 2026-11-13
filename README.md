@@ -9,12 +9,12 @@
 - Dữ liệu: **synthetic (mô phỏng)** cho demo; không phải số đo từ cảm biến vật lý.
 - SLO: chỉ là snapshot; lịch sử đang tích lũy nên chưa đủ cửa sổ để kết luận.
 - Recovery: Bits Investigation **chưa xác nhận recovery**; kết luận hiện có chỉ mô tả cảnh báo và kịch bản synthetic.
-- Phần Atlas, AP1 và localhost bên dưới là **lịch sử** trước khi chuyển môi trường.
+- Các ghi chú Atlas/AP1 trong phần lịch sử không mô tả cấu hình cloud hiện tại. Hướng dẫn localhost bên dưới là môi trường phát triển riêng, dùng MongoDB Community và Mosquitto cài trên máy.
 - Health: `GET /healthz` (không cần đăng nhập) trả trạng thái app, Mongo, MQTT và tuổi mẫu mới nhất. Session cần `NICEGUI_STORAGE_SECRET` cố định trên production; `SMIOT_RECONNECT_TIMEOUT` (mặc định 90 giây) quyết định thời gian giữ session khi client mất kết nối.
 
 ## Trạng thái cloud đã kiểm chứng — 2026-11-03 (đọc phần này trước)
 
-Trạng thái dưới đây là snapshot mới nhất; các mục Atlas/AP1 và hướng dẫn chạy localhost ở các phần sau là **lịch sử trước khi chuyển môi trường**, không phải cấu hình cloud hiện tại.
+Trạng thái cloud dưới đây là snapshot có ngày. Hướng dẫn localhost ở phần sau dành cho phát triển trên máy cá nhân và không kết nối vào MongoDB hoặc MQTT production.
 
 - AWS profile `aws-moi` xác minh account 920235987407, region ap-southeast-2; EC2 i-00bf2d3591d3ee0a2 (t3.small) đang chạy. Profile mặc định trỏ account khác (255103685766), vì vậy dùng `--profile aws-moi` khi thao tác dự án. Các service smiot, mongod (MongoDB Community), mosquitto, nginx, datadog-agent, wokwi-bridge đều active.
 - Kiểm tra HTTPS công khai từ desktop: /, /login, /data, /chart, /traceability đều trả HTTP 200; đây là smoke test thủ công, chưa phải Datadog Synthetic và chưa kiểm tra đăng nhập/luồng nghiệp vụ.
@@ -125,59 +125,94 @@ Wokwi starter files are in `wokwi/smiot_demo/`. The local bridge forwards synthe
 
 To demo traceability without Wokwi, start the local MQTT broker and SMIOT app, then run `py -3.12 -X utf8 scripts\demo_traceability.py`. By default this publishes 15 simulated daily records for each of 10 lots (150 events) through the app's MQTT topic, waits for MongoDB persistence, and reports the demo lot IDs. Open the authenticated `/traceability` page and choose any lot. Use `--lots 5 --days 7` to create a smaller set. The same lot/day event IDs are updated on repeated runs, so rerunning does not create duplicate stage records.
 
-## Yêu cầu chạy local
+## Chạy ứng dụng local
 
-- Windows và Python 3.12.
-- MQTT broker chạy local tại `localhost:1883` (ví dụ Mosquitto).
-- Datadog Agent đang chạy; DogStatsD dùng `127.0.0.1:8125`, APM trace agent dùng `127.0.0.1:8126`.
-- MongoDB Atlas Network Access cho phép IP máy đang chạy ứng dụng. App cần `MONGODB_URI`; MongoDB là nơi đọc/ghi chính.
-- Các gói Python trong `requirements.txt`.
+> Đây là môi trường phát triển riêng. Không dùng `.env` của EC2, không dùng MongoDB production/Atlas, và không để app local ghi vào cơ sở dữ liệu cloud.
 
-## Cấu hình bí mật
+### Cần cài trước
 
-Đặt cấu hình trong `.env` ở thư mục dự án. Không đưa giá trị bí mật vào README, ảnh chụp, commit hoặc tin nhắn.
+- Windows 11 64-bit và Python 3.12. MongoDB Community 8.0 hỗ trợ Windows 11 theo tài liệu MongoDB.
+- MongoDB Community Server chạy trên máy, mặc định cổng `27017`. [Hướng dẫn cài MongoDB Community trên Windows](https://www.mongodb.com/docs/v8.0/tutorial/install-mongodb-on-windows/).
+- Mosquitto MQTT chạy trên máy, cổng `1883`. [Trang tải Mosquitto chính thức](https://mosquitto.org/download/).
+- Git để tải mã nguồn.
+
+Datadog không bắt buộc để mở giao diện local. Metrics, APM và LLM Observability đều tắt mặc định; có thể bật sau khi cấu hình riêng khóa Datadog của môi trường dev.
+
+### 1. Tải mã và cài thư viện
+
+Mở PowerShell:
+
+```powershell
+git clone https://github.com/dungdinhhaha/code_full_server.git
+cd code_full_server
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Nếu PowerShell chặn kích hoạt môi trường ảo, bỏ qua bước Activate và dùng `.\.venv\Scripts\python.exe` thay cho `python` ở các lệnh bên dưới.
+
+### 2. Tạo cấu hình local
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Giữ `MONGODB_URI` trỏ đến MongoDB Community local. Nếu MongoDB local đã bật xác thực, thay URI bằng thông tin local của bạn. Không chép URI, mật khẩu hay khóa từ EC2 vào đây.
+
+Khi MongoDB local chưa có tài khoản ứng dụng, thêm mật khẩu mạnh do bạn tự chọn:
 
 ```dotenv
-MONGODB_URI=<MongoDB Atlas connection string>
-MONGODB_DATABASE=smiot
-MONGODB_TELEMETRY_COLLECTION=telemetry
+SMIOT_BOOTSTRAP_ADMIN_PASSWORD=<mat-khau-manh-chi-dung-local>
+```
 
+Lần khởi động đầu sẽ tạo user `admin` với mật khẩu vừa đặt, chỉ khi collection `users` đang trống. Nếu đã có user, đăng nhập bằng tài khoản local hiện có. Không có mật khẩu mặc định.
+
+### 3. Khởi động dịch vụ và ứng dụng
+
+Đảm bảo MongoDB và Mosquitto đang chạy. Nếu cài dưới dạng Windows service, kiểm tra chúng trong ứng dụng **Services**; tên service tùy gói cài đặt. App kết nối broker tại `localhost:1883`; nếu Mosquitto chưa mở cổng local, cấu hình listener chỉ trên loopback:
+
+```conf
+listener 1883 127.0.0.1
+allow_anonymous true
+```
+
+Chỉ dùng cấu hình này cho máy phát triển; không mở listener anonymous ra mạng.
+
+```powershell
+python -X utf8 main.py
+```
+
+Mở ứng dụng tại [http://localhost:8080](http://localhost:8080) và kiểm tra sức khỏe tại [http://localhost:8080/healthz](http://localhost:8080/healthz). Dừng ứng dụng bằng `Ctrl+C` trong PowerShell.
+
+### Dữ liệu demo (tùy chọn)
+
+Mặc định `SMIOT_DEMO_MODE=false`, nên app không tự seed lịch sử và không chạy publisher mô phỏng. Muốn xem giao diện có dữ liệu, đổi thành `SMIOT_DEMO_MODE=true` trong `.env` rồi khởi động lại. Chế độ này ghi dữ liệu tổng hợp vào MongoDB local và chạy publisher MQTT mô phỏng; dữ liệu đã ghi vẫn còn sau khi dừng app. Đặt lại `false` để ngừng publisher. Không bật nếu URI đang trỏ vào dữ liệu production.
+
+Các giá trị kết nối local nằm trong [.env.example](.env.example). File `.env` chứa cấu hình cá nhân và được Git bỏ qua; không commit hoặc gửi file này.
+
+## Cấu hình Datadog local (không bắt buộc)
+
+Không cần Datadog để chạy giao diện. Nếu muốn gửi telemetry từ máy local lên Datadog, cần chạy Datadog Agent rồi đặt các giá trị trong `.env` (không ghi khóa vào README, mã nguồn hay Git):
+
+```dotenv
 DATADOG_METRICS_ENABLED=true
 DATADOG_APM_ENABLED=true
-DD_API_KEY=<Datadog API key>
-DD_APP_KEY=<Datadog Application key>
+DD_API_KEY=<Datadog-API-key>
 DD_SITE=datadoghq.com
 ```
 
-Giữ `.env` riêng trên máy và không chia sẻ nội dung file. `DD_APP_KEY` chỉ cần cho thao tác Datadog API; gửi metric trực tiếp dùng `DD_API_KEY`.
+`DD_APP_KEY` không cần cho việc gửi metric trực tiếp từ app. Giữ các tính năng tắt nếu chưa cần quan sát local.
 
 ## Chạy ứng dụng và luồng dữ liệu
 
-Mở các cửa sổ PowerShell riêng, tại mỗi cửa sổ chạy:
-
-```powershell
-cd 'D:\IOT Trung\code_full_server'
-```
-
-### 1. Cài dependencies (nếu máy chưa cài)
-
-```powershell
-py -3.12 -m pip install -r requirements.txt
-```
-
-### 2. Khởi động ứng dụng SMIOT
-
-Đảm bảo MongoDB Atlas Network Access cho phép IP hiện tại, Mosquitto và Datadog Agent đang chạy trước, sau đó:
-
-```powershell
-py -3.12 -X utf8 main.py
-```
-
-Mở [http://localhost:8080](http://localhost:8080). Ứng dụng đăng ký MQTT topic `farm/sensor` khi khởi động.
+Ứng dụng đăng ký MQTT topic `farm/sensor` khi khởi động. Để chạy các script demo MQTT, MongoDB và Mosquitto local cũng phải hoạt động.
 
 #### Chế độ demo tự nạp dữ liệu
 
-`SMIOT_DEMO_MODE=true` được bật mặc định trong `.env`. Mỗi lần khởi động app sẽ bù các bản ghi lịch sử còn thiếu (không nhân đôi dữ liệu đã seed), rồi tự chạy MQTT publisher tổng hợp mỗi 30 giây. Bộ demo gồm 30 ngày telemetry theo giờ cho 4 nhà kính, lịch tưới đã hoàn tất, thông báo mẫu, và 10 lô truy xuất với 15 ngày/giai đoạn giả lập. Các gói live cập nhật node, lưu lượng, EC, pH, PLC và biến tần; mọi đầu ra PLC/bơm luôn ở trạng thái tắt. Node 2 của Greenhouse A chạy bình thường khi mới khởi động; chỉ giữ soil humidity ở 2,4% khi bật lỗi flatline. Lịch sử seed v2 giữ Node 2 bình thường ngoại trừ cửa sổ sự cố minh họa cố định 2026-11-01 00:00–06:00 UTC. Lịch sử seed v1 sai (Node 2 đứng 2,4% cả 30 ngày) được giữ nguyên trong MongoDB để kiểm toán nhưng bị loại khỏi màn hình và báo cáo; không xóa document khỏi Time Series collection.
+Chỉ bật `SMIOT_DEMO_MODE=true` khi muốn tạo dữ liệu demo local. Mỗi lần khởi động app sẽ bù các bản ghi lịch sử demo còn thiếu (không nhân đôi dữ liệu đã seed), rồi chạy MQTT publisher tổng hợp. Bộ demo gồm telemetry, lịch tưới, thông báo và lô truy xuất giả lập. Mọi dữ liệu này là synthetic; các đầu ra PLC/bơm là mô phỏng và không điều khiển thiết bị vật lý. Dữ liệu được ghi vào MongoDB local và tiếp tục tồn tại sau khi tắt app.
 
 Đổi trạng thái cảm biến Node 2 khi demo (chạy ở máy/EC2 có thể kết nối tới MQTT broker của ứng dụng):
 
@@ -190,7 +225,7 @@ Lệnh được gửi riêng qua `farm/demo/control`, không đi chung topic đi
 
 Trong phần kể chuyện, mô tả kết luận là “luồng số đo Node 2 bị đứng” và `HOLD` là hành động an toàn trên mô phỏng. Bits cung cấp giả thuyết dựa trên telemetry/log/trace sẵn có; không dùng kết quả đó để khẳng định đầu dò ngoài đời đã hỏng hay đã được sửa. Chỉ tuyên bố phục hồi của luồng demo sau khi mẫu mới đã tới MongoDB và monitor đã hồi phục.
 
-Mở `http://localhost:8080`, đăng nhập rồi xem Home, Data, Chart, Schedule, PLC và Traceability. Nhãn `DEMO · dữ liệu mô phỏng` đánh dấu rõ dữ liệu tổng hợp. Để tắt publisher/seed, đặt `SMIOT_DEMO_MODE=false`; có thể chỉnh chu kỳ bằng `SMIOT_DEMO_INTERVAL_SECONDS` (tối thiểu 10 giây). Dữ liệu demo được ghi vào MongoDB và tiếp tục tồn tại sau khi tắt app.
+Mở `http://localhost:8080`, đăng nhập rồi xem Home, Data, Chart, Schedule, PLC và Traceability. Nhãn `DEMO · dữ liệu mô phỏng` đánh dấu rõ dữ liệu tổng hợp. Đặt `SMIOT_DEMO_MODE=false` để không seed thêm và dừng publisher khi khởi động app; dữ liệu đã ghi vẫn còn trong MongoDB local. Có thể chỉnh chu kỳ bằng `SMIOT_DEMO_INTERVAL_SECONDS` (tối thiểu 10 giây).
 
 ### 3. Gửi cảm biến giả qua ứng dụng
 

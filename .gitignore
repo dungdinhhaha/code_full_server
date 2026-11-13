@@ -20,6 +20,9 @@ id_rsa*
 id_ed25519*
 .aws/
 
+# Allow the safe local configuration template, never the real .env file.
+!.env.example
+
 # Local databases and runtime state
 farm_data.db
 farm_auth.db
