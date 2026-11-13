@@ -1,0 +1,321 @@
+{
+  "data": {
+    "id": "47e95b24-db40-4cd5-b667-5b90e170b667",
+    "type": "workflows",
+    "attributes": {
+      "name": "SMIOT | W9 | Actuator acknowledgement verification",
+      "description": "Reads explicit command-unacknowledged telemetry and escalates for inspection. It never retries commands or claims physical actuator recovery.",
+      "published": true,
+      "runAs": {
+        "type": "owner"
+      },
+      "sensitivePrivileges": false,
+      "tags": [
+        "env:demo",
+        "plan:workflow-09",
+        "project:smiot",
+        "safety:read-only",
+        "service:smiot-smart-farm"
+      ],
+      "spec": {
+        "steps": [
+          {
+            "display": {
+              "bounds": {
+                "y": 96,
+                "x": 0
+              }
+            },
+            "errorHandlers": [
+              {
+                "fallbackStepName": "escalate_query_failed",
+                "retryStrategy": {
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 1
+                  },
+                  "kind": "RETRY_STRATEGY_LINEAR"
+                }
+              }
+            ],
+            "name": "read_operational_signals",
+            "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "verify_evidence_available"
+              }
+            ],
+            "parameters": [
+              {
+                "value": "10m",
+                "name": "range"
+              },
+              {
+                "value": [
+                  {
+                    "aggregator": "last",
+                    "name": "unacknowledged",
+                    "query": "sum:smiot.actuator.command_unacknowledged{event:unacknowledged}",
+                    "data_source": "metrics"
+                  },
+                  {
+                    "aggregator": "last",
+                    "name": "safe_mode_active",
+                    "query": "max:smiot.actuator.safe_mode_active{*}",
+                    "data_source": "metrics"
+                  },
+                  {
+                    "aggregator": "last",
+                    "name": "acknowledged",
+                    "query": "sum:smiot.actuator.command_acknowledged{event:acknowledged}",
+                    "data_source": "metrics"
+                  }
+                ],
+                "name": "queries"
+              },
+              {
+                "value": [
+                  {
+                    "formula": "unacknowledged"
+                  },
+                  {
+                    "formula": "safe_mode_active"
+                  },
+                  {
+                    "formula": "acknowledged"
+                  }
+                ],
+                "name": "formulas"
+              }
+            ]
+          },
+          {
+            "name": "verify_evidence_available",
+            "actionId": "com.datadoghq.core.if",
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 216
+              }
+            },
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; return [\"unacknowledged\",\"safe_mode_active\",\"acknowledged\"].every(k => Number.isFinite(Number(c.find(x=>x.name===k)?.values?.[0]))); })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "branchName": "true",
+                "nextStepName": "classify_evidence"
+              },
+              {
+                "branchName": "false",
+                "nextStepName": "escalate_missing_evidence"
+              }
+            ]
+          },
+          {
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 384
+              }
+            },
+            "name": "classify_evidence",
+            "outboundEdges": [
+              {
+                "nextStepName": "evidence_observed",
+                "branchName": "true"
+              },
+              {
+                "nextStepName": "escalate_or_review",
+                "branchName": "false"
+              }
+            ],
+            "parameters": [
+              {
+                "value": "and",
+                "name": "joinOperator"
+              },
+              {
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const u=Number(c.find(x=>x.name===\"unacknowledged\")?.values?.[0]); const s=Number(c.find(x=>x.name===\"safe_mode_active\")?.values?.[0]); return Number.isFinite(u) && u>0 && s===1; })() }",
+                    "rightValue": true
+                  }
+                ],
+                "name": "conditions"
+              }
+            ],
+            "actionId": "com.datadoghq.core.if"
+          },
+          {
+            "display": {
+              "bounds": {
+                "y": 552,
+                "x": 0
+              }
+            },
+            "name": "evidence_observed",
+            "parameters": [
+              {
+                "value": "W9 | COMMAND_UNACKNOWLEDGED | Check command history, PLC feedback and physical actuator state. Retry is intentionally disabled until idempotency and safe-retry policy are proven; enter safe mode per operator procedure if needed. | RECORD=workflow run and linked monitor event | VERIFY=check app action ledger and fresh telemetry before marking recovered; Echo is not recovery proof",
+                "name": "value"
+              }
+            ],
+            "actionId": "com.datadoghq.core.echo",
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "notify_smiot_app"
+              }
+            ]
+          },
+          {
+            "display": {
+              "bounds": {
+                "y": 552,
+                "x": 0
+              }
+            },
+            "name": "escalate_or_review",
+            "parameters": [
+              {
+                "value": "W9 | NO_UNACK_SIGNAL | No unacknowledged command was returned or data is absent. Verify monitor and command ACK source; do not claim the actuator is healthy from missing data. | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty",
+                "name": "value"
+              }
+            ],
+            "actionId": "com.datadoghq.core.echo",
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "notify_smiot_app"
+              }
+            ]
+          },
+          {
+            "display": {
+              "bounds": {
+                "y": 552,
+                "x": 0
+              }
+            },
+            "name": "escalate_query_failed",
+            "parameters": [
+              {
+                "value": "SMIOT | W9 | Actuator acknowledgement verification | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+                "name": "value"
+              }
+            ],
+            "actionId": "com.datadoghq.core.echo",
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "notify_smiot_app"
+              }
+            ]
+          },
+          {
+            "name": "escalate_missing_evidence",
+            "actionId": "com.datadoghq.core.echo",
+            "display": {
+              "bounds": {
+                "x": 384,
+                "y": 552
+              }
+            },
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W9 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+              }
+            ],
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "notify_smiot_app"
+              }
+            ]
+          },
+          {
+            "name": "notify_smiot_app",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W9 actuator ACK verification completed. A missing ACK keeps the command in a safe state and suppresses unsafe repeats until device evidence arrives. Run {{InstanceId}} contains the evidence. Correlation remains unverified: this workflow context does not supply a verified incident, farm, or scenario-run ID.\",\"category\":\"datadog\",\"severity\":\"warning\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"investigating\",\"verification_status\":\"unknown\"}"
+              }
+            ],
+            "readinessGate": {
+              "thresholdType": "ANY"
+            }
+          }
+        ],
+        "handle": "smiot-w09-actuator-ack-verify",
+        "triggers": [
+          {
+            "startStepNames": [
+              "read_operational_signals"
+            ],
+            "monitorTrigger": {
+              "rateLimit": {
+                "count": 1,
+                "interval": "300s"
+              }
+            }
+          },
+          {
+            "startStepNames": [
+              "read_operational_signals"
+            ],
+            "apiTrigger": {}
+          }
+        ],
+        "connectionEnvs": [
+          {
+            "env": "default",
+            "connections": [
+              {
+                "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                "label": "SMIOT_APP_HTTP"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

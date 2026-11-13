@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "author": "SMIOT Course Demo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 30, "left": 20, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht", "top": -90, "left": 300, "attrs": { "temperature": "29", "humidity": "72" } },
+    { "type": "wokwi-potentiometer", "id": "soil", "top": 100, "left": 300, "attrs": { "value": "1800" } },
+    { "type": "wokwi-resistor", "id": "r-alert", "top": 170, "left": 420, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "alert", "top": 180, "left": 500, "attrs": { "color": "red", "label": "CLIMATE ALERT" } },
+    { "type": "wokwi-buzzer", "id": "buzzer", "top": 90, "left": 500, "attrs": {} },
+    { "type": "wokwi-text", "id": "label", "top": 270, "left": 285, "attrs": { "text": "Node 1: synthetic climate/soil telemetry; red LED + one beep at alert threshold" } }
+  ],
+  "connections": [
+    [ "esp:3V3", "dht:VCC", "red", [] ],
+    [ "dht:SDA", "esp:D15", "green", [] ],
+    [ "dht:GND", "esp:GND.1", "black", [] ],
+    [ "esp:3V3", "soil:VCC", "red", [] ],
+    [ "soil:SIG", "esp:D34", "green", [] ],
+    [ "soil:GND", "esp:GND.1", "black", [] ],
+    [ "esp:D23", "r-alert:1", "red", [] ],
+    [ "r-alert:2", "alert:A", "red", [] ],
+    [ "alert:C", "esp:GND.1", "black", [] ],
+    [ "esp:D22", "buzzer:1", "orange", [] ],
+    [ "buzzer:2", "esp:GND.1", "black", [] ]
+  ],
+  "serialMonitor": { "display": "auto", "newline": "lf", "convertEol": true }
+}

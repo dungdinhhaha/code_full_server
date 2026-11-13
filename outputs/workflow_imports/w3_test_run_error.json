@@ -1,0 +1,375 @@
+{
+  "data": {
+    "attributes": {
+      "endTimestamp": "2026-11-10T08:26:52.436343Z",
+      "errorDetail": "400 Bad Request: {\"status\":\"invalid_request\",\"reason\":\"workflow_run_or_instance_not_allowed\"}",
+      "instanceStatus": {
+        "detailsKind": "STEP_ERROR",
+        "displayName": "Step error",
+        "stepError": {
+          "fatalStepFailures": [
+            {
+              "actionFqn": "com.datadoghq.http.request",
+              "actionIcon": {
+                "kind": "SVG",
+                "svg": {
+                  "name": "http"
+                }
+              },
+              "errorDetail": "400 Bad Request: {\"status\":\"invalid_request\",\"reason\":\"workflow_run_or_instance_not_allowed\"}",
+              "stepExecutionId": "d7ecb48f-8905-48c1-b11f-ae78e357ec40",
+              "stepName": "verify_smiot_recovery"
+            }
+          ]
+        }
+      },
+      "outputs": {},
+      "source": {
+        "api": {
+          "actingUser": {
+            "userEmail": "dungyeuduyen08032004@gmail.com",
+            "userName": "dung tien",
+            "userUuid": "92c5d45e-0b70-4b11-92d4-6cec4993965b"
+          },
+          "body": "eyJtZXRhIjp7InBheWxvYWQiOnt9fX0=",
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "23",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          }
+        }
+      },
+      "sourceForTemplating": {
+        "api": {
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "23",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          },
+          "requestBody": "{\"meta\":{\"payload\":{}}}"
+        },
+        "initiator": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "name": "SMIOT | Guarded EC2 app recovery",
+        "runAsUser": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "runAsUserMode": "owner",
+        "type": "workflows_api",
+        "url": "https://app.datadoghq.com/workflow/373ed0c0-4509-4fcd-a067-f54f0becc00e?instance=b8cd6077-5776-4baa-a531-c0ecaa30be82"
+      },
+      "startTimestamp": "2026-11-10T08:26:48.487399Z",
+      "stepStateAssociations": [
+        {
+          "finishedAt": "2026-11-10T08:26:50.154746Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T08:26:48.896409Z",
+          "stepName": "Send_command",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T08:26:51.241272Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T08:26:50.163738Z",
+          "stepName": "notify_smiot_app",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "errorCode": "INTEGRATION_ERR_ACTION",
+          "errorReason": "400 Bad Request: {\"status\":\"invalid_request\",\"reason\":\"workflow_run_or_instance_not_allowed\"}",
+          "finishedAt": "2026-11-10T08:26:52.42794Z",
+          "isErrorFatal": true,
+          "startedAt": "2026-11-10T08:26:51.250018Z",
+          "stepName": "verify_smiot_recovery",
+          "stepState": "EXECUTION_FAILED"
+        }
+      ],
+      "systemTags": [
+        "service:smiot-smart-farm"
+      ],
+      "trigger": {},
+      "userTags": [
+        "env:demo",
+        "project:smiot"
+      ]
+    },
+    "id": "b8cd6077-5776-4baa-a531-c0ecaa30be82",
+    "relationships": {
+      "specVersion": {
+        "data": {
+          "id": "0aa02420-610e-41a3-8400-1e2a4b096325",
+          "type": "spec_versions"
+        }
+      },
+      "workflow": {
+        "data": {
+          "id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+          "type": "workflows"
+        }
+      }
+    },
+    "type": "instances"
+  },
+  "included": [
+    {
+      "attributes": {
+        "createdAt": "2026-11-10T08:26:47.554722Z",
+        "spec": {
+          "connectionEnvs": [
+            {
+              "connections": [
+                {
+                  "connectionId": "9477b5cd-189f-442b-aa16-f2b76089efc8",
+                  "label": "INTEGRATION_AWS"
+                },
+                {
+                  "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                  "label": "SMIOT_APP_HTTP"
+                }
+              ],
+              "env": "default"
+            }
+          ],
+          "handle": "smiot-guarded-ec2-recovery",
+          "steps": [
+            {
+              "actionId": "com.datadoghq.aws.system_manager.sendCommand",
+              "connectionLabel": "INTEGRATION_AWS",
+              "display": {
+                "bounds": {
+                  "y": 192
+                }
+              },
+              "name": "Send_command",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "region",
+                  "value": "ap-southeast-2"
+                },
+                {
+                  "name": "documentName",
+                  "value": "SMIOT-GuardedStartApp"
+                },
+                {
+                  "name": "instanceIds",
+                  "value": [
+                    "i-00bf2d3591d3ee0a2"
+                  ]
+                },
+                {
+                  "name": "parameters",
+                  "value": {
+                    "DryRun": [
+                      "false"
+                    ],
+                    "IncidentId": [
+                      "{{ InstanceId }}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.http.request",
+              "connectionLabel": "SMIOT_APP_HTTP",
+              "display": {
+                "bounds": {
+                  "x": 180,
+                  "y": 192
+                }
+              },
+              "name": "notify_smiot_app",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "verify_smiot_recovery"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "verb",
+                  "value": "POST"
+                },
+                {
+                  "name": "url",
+                  "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+                },
+                {
+                  "name": "requestHeaders",
+                  "value": [
+                    {
+                      "key": "Content-Type",
+                      "value": [
+                        "application/json"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "body",
+                  "value": "{\"event_id\":\"{{InstanceId}}-action-started\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"workflow_run_id\":\"{{InstanceId}}\",\"monitor_id\":\"{{Source.monitor.id}}\",\"message\":\"Guarded SMIOT app recovery started. The app is checking database and broker guards before starting only the web service.\",\"category\":\"datadog\",\"severity\":\"warning\",\"status\":\"action_started\",\"action_code\":\"guarded_app_start\",\"verification_status\":\"pending\"}"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.http.request",
+              "completionGate": {
+                "completionCondition": {
+                  "operand1": "{{ Steps.verify_smiot_recovery.body.verified }}",
+                  "operand2": true,
+                  "operator": "OPERATOR_EQUAL"
+                },
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "10s",
+                    "maxRetries": 18
+                  }
+                }
+              },
+              "connectionLabel": "SMIOT_APP_HTTP",
+              "display": {
+                "bounds": {
+                  "x": 360,
+                  "y": 192
+                }
+              },
+              "name": "verify_smiot_recovery",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_verified_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "verb",
+                  "value": "POST"
+                },
+                {
+                  "name": "url",
+                  "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/recovery-verification"
+                },
+                {
+                  "name": "requestHeaders",
+                  "value": [
+                    {
+                      "key": "Content-Type",
+                      "value": [
+                        "application/json"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "body",
+                  "value": "{\"workflow_run_id\":\"{{InstanceId}}\",\"instance_id\":\"i-00bf2d3591d3ee0a2\"}"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.http.request",
+              "connectionLabel": "SMIOT_APP_HTTP",
+              "display": {
+                "bounds": {
+                  "x": 540,
+                  "y": 192
+                }
+              },
+              "name": "notify_verified_smiot_app",
+              "parameters": [
+                {
+                  "name": "verb",
+                  "value": "POST"
+                },
+                {
+                  "name": "url",
+                  "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+                },
+                {
+                  "name": "requestHeaders",
+                  "value": [
+                    {
+                      "key": "Content-Type",
+                      "value": [
+                        "application/json"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "body",
+                  "value": "{\"event_id\":\"{{InstanceId}}-recovery-verified\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"workflow_run_id\":\"{{InstanceId}}\",\"monitor_id\":\"{{Source.monitor.id}}\",\"message\":\"Recovery check passed: app and login are healthy, MongoDB and MQTT are healthy, and fresh telemetry is present. Result: {{ Steps.verify_smiot_recovery.body.status }}. Datadog run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"info\",\"status\":\"{{ Steps.verify_smiot_recovery.body.status }}\",\"action_code\":\"guarded_app_start_{{ Steps.verify_smiot_recovery.body.status }}\",\"verification_status\":\"passed\",\"evidence_refs\":[\"{{InstanceId}}\"]}"
+                }
+              ]
+            }
+          ],
+          "triggers": [
+            {
+              "monitorTrigger": {
+                "rateLimit": {
+                  "count": 1,
+                  "interval": "600s"
+                }
+              },
+              "startStepNames": [
+                "Send_command"
+              ]
+            },
+            {
+              "apiTrigger": {},
+              "startStepNames": [
+                "Send_command"
+              ]
+            }
+          ]
+        },
+        "workflowId": "373ed0c0-4509-4fcd-a067-f54f0becc00e"
+      },
+      "id": "0aa02420-610e-41a3-8400-1e2a4b096325",
+      "type": "spec_versions"
+    },
+    {
+      "attributes": {
+        "autoDescription": "This workflow facilitates recovery of EC2 applications by sending commands and verifying restoration.",
+        "createdAt": "2026-11-09T16:32:10.679053Z",
+        "creationSource": "workflows_ui",
+        "description": "Starts only the SMIOT web application after the inactive-service monitor fires. SSM checks MongoDB, MQTT, disk, deduplication, HTTP health, and fresh MongoDB telemetry; it never restarts MongoDB or MQTT.",
+        "name": "SMIOT | Guarded EC2 app recovery",
+        "specVersionId": "0aa02420-610e-41a3-8400-1e2a4b096325",
+        "systemTags": [
+          "service:smiot-smart-farm"
+        ],
+        "updatedAt": "2026-11-10T08:26:48.637603Z",
+        "userTags": [
+          "env:demo",
+          "project:smiot"
+        ]
+      },
+      "id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+      "type": "workflows"
+    }
+  ],
+  "meta": {
+    "outputsTooBig": false,
+    "sourceTooBig": false,
+    "triggerTooBig": false
+  }
+}

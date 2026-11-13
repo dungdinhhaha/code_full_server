@@ -1,0 +1,200 @@
+{
+  "data": {
+    "id": "bb86206c-6df8-4b1d-8016-175a2fc62e49",
+    "type": "workflows",
+    "attributes": {
+      "createdAt": "2026-11-09T18:11:14.178895Z",
+      "description": "Checks soil-moisture input freshness before a human reviews the next irrigation turn. No crop envelope is assumed and no schedule is edited.",
+      "name": "SMIOT | W7 | Irrigation schedule evidence review",
+      "published": true,
+      "runAsUserMode": "owner",
+      "sensitivePrivileges": false,
+      "spec": {
+        "triggers": [
+          {
+            "startStepNames": [
+              "read_operational_signals"
+            ],
+            "monitorTrigger": {
+              "rateLimit": {
+                "count": 1,
+                "interval": "300s"
+              }
+            }
+          }
+        ],
+        "steps": [
+          {
+            "name": "read_operational_signals",
+            "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+            "parameters": [
+              {
+                "name": "range",
+                "value": "10m"
+              },
+              {
+                "name": "queries",
+                "value": [
+                  {
+                    "aggregator": "last",
+                    "data_source": "metrics",
+                    "name": "soil_humidity",
+                    "query": "avg:smiot.telemetry.soil_humidity{*}"
+                  },
+                  {
+                    "aggregator": "last",
+                    "data_source": "metrics",
+                    "name": "sample_age_s",
+                    "query": "max:smiot.telemetry.sample_age_seconds{*}"
+                  }
+                ]
+              },
+              {
+                "name": "formulas",
+                "value": [
+                  {
+                    "formula": "soil_humidity"
+                  },
+                  {
+                    "formula": "sample_age_s"
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "classify_evidence",
+                "branchName": "main"
+              }
+            ],
+            "errorHandlers": [
+              {
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 1
+                  }
+                },
+                "fallbackStepName": "escalate_query_failed"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 96
+              }
+            }
+          },
+          {
+            "name": "classify_evidence",
+            "actionId": "com.datadoghq.core.if",
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const a=Number(c.find(x=>x.name===\"sample_age_s\")?.values?.[0]); return Number.isFinite(a) && a>=0 && a<120; })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "evidence_observed",
+                "branchName": "true"
+              },
+              {
+                "nextStepName": "escalate_or_review",
+                "branchName": "false"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 264
+              }
+            }
+          },
+          {
+            "name": "evidence_observed",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W7 | FRESH_INPUTS_FOR_REVIEW | Soil moisture sample is fresh. Compare it with the approved farm schedule and crop-stage envelope before any human-approved change. This workflow does not modify irrigation."
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 432
+              }
+            }
+          },
+          {
+            "name": "escalate_or_review",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W7 | SCHEDULE_CHANGE_BLOCKED | Soil-moisture evidence is stale or unavailable. Keep the existing safe schedule, check sensor/persistence, and escalate; no automatic irrigation change."
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 432
+              }
+            }
+          },
+          {
+            "name": "escalate_query_failed",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "SMIOT | W7 | Irrigation schedule evidence review | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action."
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 96
+              }
+            }
+          }
+        ],
+        "handle": "smiot-w07-irrigation-schedule-review"
+      },
+      "tags": [
+        "env:demo",
+        "plan:workflow-07",
+        "project:smiot",
+        "safety:read-only",
+        "service:smiot-smart-farm"
+      ],
+      "updatedAt": "2026-11-09T18:11:14.951282Z"
+    },
+    "relationships": {
+      "creator": {
+        "data": {
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "type": "users"
+        }
+      },
+      "owner": {
+        "data": {
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "type": "users"
+        }
+      }
+    }
+  }
+}

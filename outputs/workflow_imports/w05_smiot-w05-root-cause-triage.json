@@ -1,0 +1,195 @@
+{
+  "description": "Read-only correlation of MongoDB, MQTT, ingest lag and sample age. Classifies an evidence gap for human follow-up; does not restart infrastructure.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm",
+    "plan:workflow-05",
+    "safety:read-only"
+  ],
+  "name": "SMIOT | W5 | Root cause dependency triage",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evidence",
+            "branchName": "main"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "mongo_up",
+                "query": "min:smiot.dependency.mongo.up{*}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "mqtt_up",
+                "query": "min:smiot.dependency.mqtt.up{*}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "ingest_lag_ms",
+                "query": "max:smiot.telemetry.ingest_lag_ms{*}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "sample_age_s",
+                "query": "max:smiot.telemetry.sample_age_seconds{*}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "mongo_up"
+              },
+              {
+                "formula": "mqtt_up"
+              },
+              {
+                "formula": "ingest_lag_ms"
+              },
+              {
+                "formula": "sample_age_s"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 264,
+            "x": 0
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const n=k=>Number(c.find(x=>x.name===k)?.values?.[0]); const m=n(\"mongo_up\"), q=n(\"mqtt_up\"), l=n(\"ingest_lag_ms\"), a=n(\"sample_age_s\"); return (Number.isFinite(m)&&m<1)||(Number.isFinite(q)&&q<1)||(Number.isFinite(l)&&l>5000)||(Number.isFinite(a)&&a>120); })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W5 | DEPENDENCY_DEGRADATION_EVIDENCE | Compare Mongo ping/persistence, MQTT consumer/broker, ingest lag and sample age; open the matching logs/traces and correlate by farm/time. No restart is authorized by this workflow.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W5 | NO_ROOT_CAUSE_CONFIRMED | No dependency threshold was confirmed or data is missing. Preserve uncertainty and escalate with monitor group/log/trace links; no infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W5 | Root cause dependency triage | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      }
+    ],
+    "handle": "smiot-w05-root-cause-triage",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

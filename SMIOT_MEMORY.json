@@ -1,18 +1,27 @@
 {
   "format": "smiot-project-memory-v1",
-  "updated": "2026-11-04",
+  "updated": "2026-11-10",
   "language": "vi",
   "project": {
     "name": "SMIOT Smart Farm",
     "repo": "D:/IOT Trung/code_full_server",
-    "description": "Ứng dụng quản lý nhà kính dưa lưới: telemetry MQTT, điều khiển tưới, phân tích chuỗi thời gian, hồ sơ lô và giám sát vận hành.",
+    "description": "Trung tâm quan sát và phục hồi nhà màng dưa lưới: theo dõi thiết bị, luồng dữ liệu, ứng dụng, hạ tầng và hoạt động mùa vụ; phát hiện, điều tra, phản ứng có kiểm soát và xác minh phục hồi qua nhiều tình huống vận hành.",
+    "product_direction": {
+      "positioning": "Một trung tâm vận hành nhà màng dưa lưới chuyên nghiệp, không phải ứng dụng xoay quanh một kịch bản demo duy nhất.",
+      "operational_domains": ["Thiết bị và cảm biến", "MQTT và độ tin cậy dữ liệu", "Tưới, PLC ảo và biến tần", "Ứng dụng backend/frontend và AI", "MongoDB và lưu trữ", "Máy chủ/EC2 và dịch vụ nền", "Mùa vụ, dự báo và truy xuất nguồn gốc"],
+      "incident_model": "Mỗi tình huống vận hành có thể là một incident/playbook độc lập; các incident dùng chung quy trình phát hiện → điều tra → hành động an toàn → xác minh phục hồi. Chỉ liên kết dữ liệu, dịch vụ, node hoặc lô khi có khóa và quan hệ thời gian/ngữ cảnh xác thực.",
+      "demo_strategy": "Trình diễn nhiều luồng có thể chọn theo thời gian và đối tượng xem; không ép tất cả thành một luồng sự cố duy nhất. Mỗi ca phải có bằng chứng riêng, và dashboard trung tâm thể hiện bức tranh vận hành tổng thể.",
+      "home_dashboard": "Trang Home bản đang chạy đã triển khai EC2 ngày 2026-11-10 và đã xác minh điều hướng farm. Bản nâng cấp cục bộ mới thay hai biểu đồ bằng một heatmap 10 farm gồm nhiệt độ/độ ẩm không khí, độ ẩm đất, EC đất, pH, lưu lượng, thoát nước, quạt, độ mới mẫu và incident; bên dưới là feed sự cố/thông báo từ MongoDB. Bản cục bộ chưa deploy EC2. Dữ liệu giao diện đọc từ MongoDB, loại bản ghi seed; publisher vẫn là thiết bị ảo/tổng hợp.",
+      "shared_agronomic_thresholds": "service/agronomic_thresholds.py là nguồn dùng chung: nhiệt độ không khí <10°C hoặc >35°C là cảnh báo tham khảo; độ ẩm không khí >85% là nhắc kiểm tra dự án; mẫu mới từ mọi farm tạo/clear một thông báo transition trong MongoDB, chỉ advisory và không điều khiển bơm. Độ ẩm đất chưa có dải vì cần hiệu chuẩn đầu dò theo giá thể/field capacity. Hiện mới có mã cục bộ, chưa deploy EC2."
+    },
     "demo_url": "https://13-238-30-218.sslip.io/",
-    "primary_story": "MongoDB giữ bằng chứng vận hành; Datadog nối phát hiện, điều tra, phản ứng và hậu kiểm. Mục tiêu là chứng minh một luồng nhất quán, không ghép các demo độc lập."
+    "primary_story": "SMIOT là trung tâm quan sát và phục hồi nhà màng dưa lưới: nhiều luồng thiết bị, dữ liệu, ứng dụng, hạ tầng và mùa vụ; mỗi sự cố có bằng chứng và playbook riêng, liên kết với nhau khi có quan hệ xác thực. MongoDB lưu và phân tích bối cảnh vận hành; Datadog hỗ trợ quan sát, điều tra và phản ứng có kiểm soát."
   },
   "user_preferences": [
     "Trao đổi bằng tiếng Việt, dùng từ ngữ đơn giản và tự nhiên.",
     "Ưu tiên làm việc cụ thể và kiểm tra bằng chứng trước khi tuyên bố hoàn thành.",
     "Trình bày theo câu chuyện vận hành, nhấn mạnh giá trị MongoDB và Datadog.",
+    "Định hướng sản phẩm là trung tâm quan sát và phục hồi nhà màng dưa lưới với nhiều luồng vận hành; không thu hẹp thành một kịch bản demo duy nhất.",
     "Không tuyên bố điểm thi chắc chắn hoặc tính năng chưa được xác minh.",
     "Với dữ liệu mô phỏng, không kết luận cảm biến hoặc máy bơm vật lý đã hỏng hay được sửa."
   ],
@@ -88,7 +97,7 @@
   },
   "competition": {
     "judging_dimensions": ["Bài toán và vận hành thực tế", "MongoDB architecture/implementation", "Datadog observability", "Phát hiện-điều tra-xử lý trọn vẹn", "Độ tin cậy/bảo trì", "Sáng tạo và AI hợp lý", "Tác động vận hành", "MVP, tài liệu, video, thuyết trình"],
-    "required_narrative": "Một sự cố có mã và bằng chứng xuyên suốt khi có liên hệ xác thực: telemetry → monitor → logs/traces/context → quyết định/hành động → ACK → dữ liệu xác nhận phục hồi.",
+    "required_narrative": "Kể câu chuyện về một trung tâm quan sát và phục hồi nhà màng dưa lưới qua nhiều luồng vận hành và nhiều incident/playbook. Mỗi incident có mã và bằng chứng riêng; khi có quan hệ xác thực, lần theo telemetry → cảnh báo → logs/traces/ngữ cảnh → quyết định/hành động → ACK → dữ liệu xác nhận phục hồi. Không ghép các ca độc lập thành cùng một incident.",
     "rules": ["Không gộp Node2 incident và EC2 app recovery thành cùng incident.", "Không nối incident với lot nếu farm/node/time assignment không khớp.", "Không khẳng định tiết kiệm nước/chi phí nếu chưa đo actual.", "Khai báo synthetic/seed data, thư viện, code có sẵn và công cụ AI theo thể lệ."]
   },
   "key_files": {

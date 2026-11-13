@@ -1,0 +1,16 @@
+Giờ chạy: 2026-11-06 02:35:22Z (09:35:22 ICT)
+Đọc, không ghi.
+
+1) aws sts get-caller-identity --profile aws-moi --region ap-southeast-2
+2) aws ssm describe-instance-information --profile aws-moi --region ap-southeast-2 --filters Key=InstanceIds,Values=i-00bf2d3591d3ee0a2
+3) aws ssm send-command --profile aws-moi --region ap-southeast-2 --instance-ids i-00bf2d3591d3ee0a2 --document-name AWS-RunShellScript --parameters file://<scratchpad>\a0_params.json
+   Nội dung tham số (đọc-only):
+   echo UTC=$(date -u +%FT%TZ)
+   curl -s -m 5 -w " HTTP=%{http_code}" http://127.0.0.1:8080/healthz; echo
+   systemctl is-active smiot mongod mosquitto
+   systemctl is-active smiot-external-probe.timer
+   ls -la /opt/smiot/scripts/set_demo_sensor_fault.py
+4) aws ssm get-command-invocation --command-id 8dbfd5b1-61cb-482e-a1d2-6cb7f775c174 --instance-id i-00bf2d3591d3ee0a2
+
+Ghi chú: aws-mcp run_script bị hook chặn (thiếu Git Bash), nên dùng AWS CLI profile aws-moi từ PowerShell như kế hoạch cho phép.
+Không đọc .env, /etc/smiot/*.env.

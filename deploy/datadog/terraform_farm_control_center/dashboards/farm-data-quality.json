@@ -1,0 +1,139 @@
+{
+  "description": "Farm telemetry data quality view using verified SMIOT metrics; freshness, flatlines, mismatches and persistence are shown without inventing quality or cost metrics.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "notify_list": [],
+  "restricted_roles": [],
+  "tags": [
+    "team:smiot"
+  ],
+  "template_variables": [
+    {
+      "name": "farm",
+      "prefix": "farm",
+      "available_values": [
+        "greenhouse_a",
+        "greenhouse_b",
+        "greenhouse_c",
+        "greenhouse_d",
+        "greenhouse_e",
+        "greenhouse_f",
+        "greenhouse_g",
+        "greenhouse_h",
+        "greenhouse_i",
+        "greenhouse_j"
+      ],
+      "defaults": [
+        "*"
+      ]
+    }
+  ],
+  "title": "SMIOT | Farm Data Quality",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Telemetry freshness (seconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sample_age_seconds{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Sensor flatline signals",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sensor_flatline{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Farm status mismatches",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.status_mismatch{$farm} by {farm}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Persisted telemetry samples per second",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "sum:smiot.telemetry.samples_persisted{$farm,source:smiot_demo_stream} by {farm}.as_rate()"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MQTT-to-app ingest lag (milliseconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.ingest_lag_ms{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

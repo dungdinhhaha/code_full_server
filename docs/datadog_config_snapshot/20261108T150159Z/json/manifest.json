@@ -1,0 +1,36 @@
+{
+  "exported_at_utc": "2026-11-08",
+  "site": "datadoghq.com (US)",
+  "counts": {
+    "dashboards": 1,
+    "slows": 1,
+    "workflows": 3,
+    "monitors": 17
+  },
+  "coverage": {
+    "dashboard_json": true,
+    "monitor_json": true,
+    "slo_json": true,
+    "workflow_json": true,
+    "other_configuration_json": true,
+    "terraform": [
+      "dashboard",
+      "monitors",
+      "SLO",
+      "workflows"
+    ]
+  },
+  "limitations": {
+    "cloud_cost_budgets": {
+      "_error": "ApiException: HTTP 403 for v2.CloudCostManagementApi.listBudgets"
+    },
+    "aws_cur_configs": {
+      "data": []
+    }
+  },
+  "redaction": {
+    "secret_like_values_replaced": 0,
+    "policy": "Recursive secret-key redaction; no credentials exported"
+  },
+  "note": "Read-only configuration snapshot. No raw telemetry. Terraform is generated infrastructure-as-code, not Datadog's UI export."
+}

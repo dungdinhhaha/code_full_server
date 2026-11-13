@@ -1,0 +1,409 @@
+{
+  "description": "Review VPD and soil-EC evidence for an operator. No unapproved crop limits or automatic ventilation, drainage, spray, or irrigation action. This workflow is evidence-only: it does not operate fans, nutrients, drainage or spray. Any control action requires a person and an approved crop-stage envelope. Monitor-triggered farm/node inputs scope VPD, EC, and sample-age reads to the affected node. Crop-stage limits are not inferred; no control action is issued.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "env:demo",
+    "evidence:required",
+    "maturity:level5-design",
+    "plan:workflow-08",
+    "project:smiot",
+    "safety:fail-closed",
+    "safety:read-only",
+    "service:smiot-smart-farm"
+  ],
+  "name": "SMIOT | W8 | Crop climate and EC evidence review",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "verify_evidence_available"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "vpd_kpa",
+                "query": "avg:smiot.crop.vpd_kpa{farm:{{Trigger.farm_key}},node:{{Trigger.node_id}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "soil_ec",
+                "query": "avg:smiot.telemetry.soil_ec{farm:{{Trigger.farm_key}},node:{{Trigger.node_id}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "sample_age_s",
+                "query": "max:smiot.telemetry.sample_age_seconds{farm:{{Trigger.farm_key}},node:{{Trigger.node_id}}}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "vpd_kpa"
+              },
+              {
+                "formula": "soil_ec"
+              },
+              {
+                "formula": "sample_age_s"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "name": "verify_evidence_available",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 216
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"vpd_kpa\", \"soil_ec\", \"sample_age_s\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "classify_evidence"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 384
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const a=Number(c.find(x=>x.name===\"sample_age_s\")?.values?.[0]); return Number.isFinite(a) && a>=0 && a<120; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W8 | FRESH_CROP_INPUTS_FOR_REVIEW | VPD and soil EC samples are fresh for the monitor farm/node. Compare with the approved crop-stage envelope; no automatic climate/nutrient action and no recovery claim.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_evidence_observed"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W8 | CROP_RISK_UNKNOWN_OR_STALE | Sample age is not below 120 seconds or crop evidence is not current. Keep control unchanged and route to operator; no fan, drainage, spray, nutrient or irrigation command.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_escalate_or_review"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W8 | Crop climate and EC evidence review | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_escalate_query_failed"
+          }
+        ]
+      },
+      {
+        "name": "escalate_missing_evidence",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W8 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "name": "notify_app_evidence_observed",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W8 outcome: VPD and soil-EC evidence is available for operator review. No climate or nutrient actuator was changed. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_escalate_or_review",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W8 outcome: crop-risk evidence is stale or outside the review condition. Ask an operator to review the crop-stage context; no climate action was taken. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_escalate_query_failed",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W8 outcome: Datadog could not read the required evidence. Status remains unknown; operator review is required. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"error\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_escalate_missing_evidence",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W8 outcome: required metric evidence is missing. Status remains unknown; operator review is required. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      }
+    ],
+    "handle": "smiot-w08-crop-risk-review",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ],
+    "inputSchema": {
+      "parameters": [
+        {
+          "name": "farm_key",
+          "type": "STRING"
+        },
+        {
+          "name": "node_id",
+          "type": "STRING"
+        }
+      ]
+    }
+  }
+}

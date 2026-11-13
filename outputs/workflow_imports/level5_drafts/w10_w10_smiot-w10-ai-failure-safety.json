@@ -1,0 +1,479 @@
+{
+  "description": "Review AI provider failure and latency evidence. Application fail-safe HOLD is authoritative; no AI-generated irrigation command. If provider telemetry or the application decision ledger is missing, keep the decision unknown and route to an operator; never replay an old AI irrigation recommendation. Current AI metrics have status tags but no farm/node tags; the workflow evidence is organization-wide and cannot be attributed to a particular farm from these metrics alone.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "env:demo",
+    "evidence:required",
+    "maturity:level5-design",
+    "plan:workflow-10",
+    "project:smiot",
+    "safety:fail-closed",
+    "safety:read-only",
+    "service:smiot-smart-farm"
+  ],
+  "name": "SMIOT | W10 | AI failure safety verification",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "verify_evidence_available"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "provider_failure",
+                "query": "sum:smiot.ai.provider_failure{status:provider_error}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "ask_latency_ms",
+                "query": "max:smiot.ai.ask_latency_ms{*}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "provider_failure"
+              },
+              {
+                "formula": "ask_latency_ms"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "name": "verify_evidence_available",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 216
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"provider_failure\", \"ask_latency_ms\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "classify_provider_error"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W10 | AI failure safety verification | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_escalate_query_failed"
+          }
+        ]
+      },
+      {
+        "name": "escalate_missing_evidence",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W10 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "name": "classify_provider_error",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 384
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"provider_failure\")?.values?.[0]); return Number.isFinite(v) && v>0; })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "provider_error_observed"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "classify_latency"
+          }
+        ]
+      },
+      {
+        "name": "classify_latency",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 384
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"ask_latency_ms\")?.values?.[0]); return Number.isFinite(v) && v>5000; })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "latency_degraded"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "no_ai_breach"
+          }
+        ]
+      },
+      {
+        "name": "provider_error_observed",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W10 | PROVIDER_ERROR | Confirm application action ledger shows deterministic fallback/HOLD; capture trace/error and provider status. Do not retry blindly or execute an AI irrigation recommendation."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_provider_error_observed"
+          }
+        ]
+      },
+      {
+        "name": "latency_degraded",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W10 | AI_LATENCY_HIGH | Confirm request trace, timeout behavior and app fallback/HOLD in the action ledger. Keep decisions on deterministic rules or human review; no actuator command."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_latency_degraded"
+          }
+        ]
+      },
+      {
+        "name": "no_ai_breach",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 768,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W10 | NO_CONFIGURED_AI_BREACH | Metrics are present and below the workflow thresholds. This does not validate recommendation quality or guarantee provider availability outside the query window."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_app_no_ai_breach"
+          }
+        ]
+      },
+      {
+        "name": "notify_app_provider_error_observed",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W10 outcome: AI provider failure metric is present. Verify the application HOLD/fallback decision in its logs and MongoDB; do not reuse an old recommendation. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"error\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_latency_degraded",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W10 outcome: AI latency exceeded the workflow threshold. Verify request trace and application decision; no irrigation action was taken. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_no_ai_breach",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W10 outcome: no configured provider-failure or latency breach was found in the queried window. This is not proof that all AI decisions are valid. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_escalate_query_failed",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W10 outcome: Datadog could not read AI evidence. Status remains unknown; operator review is required. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"error\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      },
+      {
+        "name": "notify_app_escalate_missing_evidence",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W10 outcome: required AI metric evidence is missing. Status remains unknown; operator review is required. Workflow run {{InstanceId}}.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      }
+    ],
+    "handle": "smiot-w10-ai-failure-safety",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

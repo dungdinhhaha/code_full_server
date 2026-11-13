@@ -7,6 +7,7 @@ import json
 import os
 import threading
 import time
+from uuid import uuid4
 
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
@@ -15,6 +16,7 @@ from dotenv import load_dotenv
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("normal", "flatline"), help="normal readings or fixed 2.4%% soil humidity")
+    parser.add_argument("--incident-id", default=None, help="correlate a normal/reset command with the active flatline incident")
     parser.add_argument("--host", default=None, help="MQTT host (defaults to MQTT_HOST or localhost)")
     parser.add_argument("--port", type=int, default=None, help="MQTT port (defaults to MQTT_PORT or 1883)")
     args = parser.parse_args()
@@ -32,6 +34,8 @@ def main() -> int:
     mode_ack = threading.Event()
     sensor_sample = threading.Event()
     received: dict[str, object] = {}
+    command_id = str(uuid4())
+    active_incident_id = args.incident_id
 
     def on_connect(mqtt_client, userdata, flags, reason_code, properties=None):
         if reason_code not in (None, 0):
@@ -44,13 +48,30 @@ def main() -> int:
             payload = json.loads(message.payload.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             return
-        if message.topic == "farm/demo/status" and payload.get("demo_node2_fault") in ("normal", "flatline"):
+        if (message.topic == "farm/demo/status"
+                and payload.get("demo_node2_fault") == args.mode
+                and payload.get("command_id") == command_id
+                and payload.get("applied") is True
+                and payload.get("mode_applied") is True
+                and payload.get("farm_key") == "greenhouse_a"
+                and int(payload.get("node", 0)) == 2):
+            if active_incident_id and str(payload.get("incident_id") or "") != active_incident_id:
+                return
             received["ack"] = payload
+            received["incident_id"] = payload.get("incident_id")
             mode_ack.set()
-        elif mode_ack.is_set() and message.topic == "farm/sensor" and payload.get("farm_key") == "greenhouse_a":
+        elif (mode_ack.is_set() and message.topic == "farm/sensor"
+                and payload.get("farm_key") == "greenhouse_a"
+                and str(payload.get("incident_id") or "") == str(received.get("incident_id") or "")):
             node2 = payload.get("id6", {}).get("node2", {})
             if isinstance(node2, dict) and isinstance(node2.get("sh"), (int, float)):
-                received["sample"] = {"timestamp": node2.get("timestamp", payload.get("timestamp")), "soil_humidity": node2["sh"]}
+                received["sample"] = {
+                    "timestamp": node2.get("timestamp", payload.get("timestamp")),
+                    "soil_humidity": node2["sh"],
+                    "boot_id": node2.get("boot_id"),
+                    "sample_sequence": node2.get("sample_sequence"),
+                    "incident_id": payload.get("incident_id"),
+                }
                 sensor_sample.set()
 
     client.on_connect = on_connect
@@ -62,9 +83,12 @@ def main() -> int:
         client.loop_stop()
         raise RuntimeError(f"Could not connect to MQTT broker at {host}:{port}")
 
+    command = {"demo_node2_fault": args.mode, "command_id": command_id}
+    if active_incident_id:
+        command["incident_id"] = active_incident_id
     info = client.publish(
         "farm/demo/control",
-        json.dumps({"demo_node2_fault": args.mode}, separators=(",", ":")),
+        json.dumps(command, separators=(",", ":")),
         qos=1,
     )
     info.wait_for_publish(timeout=5)
@@ -78,7 +102,8 @@ def main() -> int:
         client.loop_stop()
         raise RuntimeError("Command was published, but the demo publisher did not confirm applying it on farm/demo/status")
     ack = received["ack"]
-    if not sensor_sample.wait(timeout=45):
+    sample_timeout = max(30, int(os.getenv("SMIOT_SIM_NODE_INTERVAL_SECONDS", "60")) * 2)
+    if not sensor_sample.wait(timeout=sample_timeout):
         client.disconnect()
         client.loop_stop()
         raise RuntimeError("Publisher confirmed the mode, but no following greenhouse_a sensor sample arrived within 45 seconds")
@@ -97,6 +122,14 @@ def main() -> int:
         raise RuntimeError("Publisher ACKed flatline mode, but the first sensor sample was not 2.4%")
     if args.mode == "normal" and sample["soil_humidity"] == 2.4:
         raise RuntimeError("Publisher ACKed normal mode, but the first sensor sample remained at 2.4%")
+    print(json.dumps({
+        "mode": args.mode,
+        "command_id": command_id,
+        "incident_id": received.get("incident_id"),
+        "ack": received.get("ack"),
+        "first_sample": sample,
+        "synthetic": True,
+    }, ensure_ascii=False))
     return 0
 
 

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "author": "SMIOT Demo",
+  "editor": "velxio",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 80, "left": 20, "attrs": {} },
+    { "type": "wokwi-pushbutton", "id": "pulse", "top": -30, "left": 330, "attrs": { "color": "blue", "label": "FLOW PULSE" } },
+    { "type": "wokwi-resistor", "id": "rflow", "top": 120, "left": 430, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "flow", "top": 130, "left": 540, "attrs": { "color": "green", "label": "FLOW OK" } },
+    { "type": "wokwi-resistor", "id": "ralarm", "top": 230, "left": 430, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "alarm", "top": 240, "left": 540, "attrs": { "color": "red", "label": "FLOW ALERT" } },
+    { "type": "wokwi-buzzer", "id": "buzzer", "top": 350, "left": 540, "attrs": {} },
+    { "type": "wokwi-text", "id": "label", "top": 450, "left": 360, "attrs": { "text": "Click FLOW PULSE to simulate water pulses. Pump ON + no flow -> red LED and buzzer; normal pulses -> green LED." } }
+  ],
+  "connections": [
+    [ "pulse:1.l", "esp:D27", "blue", [] ],
+    [ "pulse:2.l", "esp:GND.1", "black", [] ],
+    [ "esp:D23", "rflow:1", "green", [] ],
+    [ "rflow:2", "flow:A", "green", [] ],
+    [ "flow:C", "esp:GND.1", "black", [] ],
+    [ "esp:D22", "ralarm:1", "red", [] ],
+    [ "ralarm:2", "alarm:A", "red", [] ],
+    [ "alarm:C", "esp:GND.1", "black", [] ],
+    [ "esp:D21", "buzzer:1", "orange", [] ],
+    [ "buzzer:2", "esp:GND.1", "black", [] ]
+  ],
+  "serialMonitor": { "display": "auto", "newline": "lf", "convertEol": true }
+}

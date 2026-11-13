@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import os
 import secrets
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -23,8 +25,7 @@ FIXED_PERMISSIONS = [
     ("pump_7_control", "Điều khiển Bơm 7", "plc"), ("manage_users", "Quản lý User", "admin"),
     ("manage_schedule", "Quản lý Lịch tưới", "schedule"), ("export_schedule_logs", "Xuất báo cáo Excel", "schedule"),
 ]
-FIXED_FARMS = [("greenhouse_a", "Greenhouse A", "🌿"), ("greenhouse_b", "Greenhouse B", "🍅"),
-               ("greenhouse_c", "Greenhouse C", "🌱"), ("greenhouse_d", "Greenhouse D", "🏚️")]
+from service.farm_registry import FARMS as FIXED_FARMS
 ROLE_PRESETS = {"admin": [p[0] for p in FIXED_PERMISSIONS],
                 "operator": ["view_dashboard", "inverter_toggle_control", "inverter_send_data", "inverter_change_mode", *[f"pump_{i}_control" for i in range(1, 8)]],
                 "viewer": ["view_dashboard"]}
@@ -87,6 +88,22 @@ def init_db():
     db.operational_incidents.create_index([("farm_key", ASCENDING), ("lot_id", ASCENDING), ("opened_at", DESCENDING)])
     db.lot_sensor_assignments.create_index([("farm_key", ASCENDING), ("node_id", ASCENDING), ("valid_from", DESCENDING)])
     db.operational_decisions.create_index([("incident_id", ASCENDING), ("created_at", DESCENDING)])
+    try:
+        import logging
+        from service.incident_blackbox import ensure_incident_indexes, apply_incident_validators
+        _blackbox_logger = logging.getLogger("smiot.auth")
+        ensure_incident_indexes(db, _blackbox_logger)
+        # Keep the versioned crop-stage lookup efficient on MongoDB Community.
+        # This only creates indexes; it does not invent or approve agronomy bands.
+        try:
+            from service.stage_envelopes import ensure_stage_envelope_indexes
+            ensure_stage_envelope_indexes()
+        except Exception as exc:
+            _blackbox_logger.warning("Bo qua index stage_envelopes: %s", exc)
+        if os.getenv("SMIOT_APPLY_VALIDATORS", "false").lower() == "true":
+            apply_incident_validators(db, _blackbox_logger)
+    except Exception as exc:
+        print(f"Bo qua index/validator hop den: {exc}")
 
     for key, label, module in FIXED_PERMISSIONS:
         db.permissions.update_one({"_id": key}, {"$set": {"key": key, "label": label, "module": module}}, upsert=True)
@@ -103,6 +120,27 @@ def init_db():
             raise RuntimeError("MongoDB has no users; set SMIOT_BOOTSTRAP_ADMIN_PASSWORD to create the first admin securely")
         seed_default_user("admin", bootstrap_password, "Admin", "admin", "admin.png")
     print("✅ MongoDB đã khởi tạo thành công!")
+    warn_legacy_password_hashes()
+
+
+def count_legacy_password_hashes() -> int:
+    """Read-only count of users still on the unsalted SHA-256 hash (never returns/logs hashes)."""
+    import re
+    return int(collection("users").count_documents({"password": {"$not": re.compile(r"^pbkdf2_sha256\$")}}))
+
+
+def warn_legacy_password_hashes() -> int:
+    """Log how many users still need the automatic upgrade; the legacy verify branch stays until it is 0."""
+    try:
+        import logging
+        count = count_legacy_password_hashes()
+        if count:
+            logging.getLogger("smiot.auth").warning(
+                "Con %d user dung bam SHA-256 cu (khong muoi); se tu nang cap len PBKDF2 khi ho dang nhap dung. "
+                "Chua nen xoa nhanh xac thuc cu.", count)
+        return count
+    except Exception:
+        return -1
 
 
 def seed_default_user(username: str, password: str, fullname: str, role: str, avatar: str) -> int:
@@ -116,10 +154,14 @@ def seed_default_user(username: str, password: str, fullname: str, role: str, av
 
 
 def verify_user(username: str, password: str):
+    if login_locked(username):
+        return None
     user = collection("users").find_one({"username": username, "is_active": 1})
     if not user:
+        record_login_result(username, False)
         return None
     valid, needs_upgrade = _verify_password(str(user.get("password", "")), password)
+    record_login_result(username, bool(valid))
     if not valid:
         return None
     if needs_upgrade:
@@ -142,7 +184,70 @@ def get_all_users():
 def get_user_by_id(user_id: int): return _ensure_ids(collection("users").find_one({"id": int(user_id)}))
 
 
-def create_user(username: str, password: str, fullname: str, role: str = "operator"):
+class PermissionDenied(Exception):
+    """Raised when a non-admin tries to change an admin or grant privileges they do not hold."""
+
+
+def check_user_change(actor_role, actor_permissions, target_role=None, new_role=None, new_permissions=None):
+    """Pure rule set. actor_role None = trusted internal call (seeds, scripts); admins may do anything."""
+    if actor_role is None or actor_role == "admin":
+        return
+    if target_role == "admin":
+        raise PermissionDenied("non_admin_cannot_change_admin")
+    if new_role == "admin":
+        raise PermissionDenied("non_admin_cannot_grant_admin")
+    if new_permissions is not None:
+        held = set(actor_permissions or [])
+        wanted = set(new_permissions)
+        if "manage_users" in wanted:
+            raise PermissionDenied("non_admin_cannot_grant_manage_users")
+        if not wanted <= held:
+            raise PermissionDenied("non_admin_cannot_grant_permissions_not_held")
+
+
+def _target_role(user_id: int):
+    doc = collection("users").find_one({"id": int(user_id)}, {"role": 1})
+    return (doc or {}).get("role")
+
+
+# ---- login throttling (per process; one EC2 instance runs the app) ----
+_LOGIN_WINDOW_S = 900
+_LOGIN_MAX_FAILS = 5
+_login_fail_log: dict[str, list[float]] = {}
+_login_lock = threading.Lock()
+
+
+def _login_key(username: str) -> str:
+    return (username or "").strip().lower()[:128]
+
+
+def login_locked(username: str, now: float | None = None) -> bool:
+    now = time.time() if now is None else now
+    key = _login_key(username)
+    with _login_lock:
+        recent = [t for t in _login_fail_log.get(key, []) if now - t < _LOGIN_WINDOW_S]
+        _login_fail_log[key] = recent
+        return len(recent) >= _LOGIN_MAX_FAILS
+
+
+def record_login_result(username: str, ok: bool, now: float | None = None) -> None:
+    now = time.time() if now is None else now
+    key = _login_key(username)
+    with _login_lock:
+        if ok:
+            _login_fail_log.pop(key, None)
+            return
+        recent = [t for t in _login_fail_log.get(key, []) if now - t < _LOGIN_WINDOW_S]
+        recent.append(now)
+        _login_fail_log[key] = recent
+        if len(_login_fail_log) > 5000:
+            for k in [k for k, v in _login_fail_log.items() if not v or now - max(v) >= _LOGIN_WINDOW_S]:
+                _login_fail_log.pop(k, None)
+
+
+def create_user(username: str, password: str, fullname: str, role: str = "operator",
+                actor_role=None, actor_permissions=None):
+    check_user_change(actor_role, actor_permissions, new_role=role)
     user_id = next_id("users")
     doc = {"_id": user_id, "id": user_id, "username": username, "password": _hash_password(password),
            "fullname": fullname, "role": role, "avatar": "client.png", "is_active": 1,
@@ -152,7 +257,9 @@ def create_user(username: str, password: str, fullname: str, role: str = "operat
     except DuplicateKeyError: return None
 
 
-def update_user(user_id: int, fullname: str = None, role: str = None, password: str = None):
+def update_user(user_id: int, fullname: str = None, role: str = None, password: str = None,
+                actor_role=None, actor_permissions=None):
+    check_user_change(actor_role, actor_permissions, target_role=_target_role(user_id), new_role=role)
     updates = {}
     if fullname: updates["fullname"] = fullname
     if role: updates["role"] = role
@@ -160,7 +267,9 @@ def update_user(user_id: int, fullname: str = None, role: str = None, password: 
     if updates: collection("users").update_one({"id": int(user_id)}, {"$set": updates})
 
 
-def delete_user(user_id: int): collection("users").delete_one({"id": int(user_id)})
+def delete_user(user_id: int, actor_role=None, actor_permissions=None):
+    check_user_change(actor_role, actor_permissions, target_role=_target_role(user_id))
+    collection("users").delete_one({"id": int(user_id)})
 
 
 def get_all_permissions(): return [{"key": k, "label": l, "module": m} for k, l, m in FIXED_PERMISSIONS]
@@ -169,14 +278,21 @@ def get_user_permissions(user_id: int):
     user = collection("users").find_one({"id": int(user_id)}, {"permissions": 1})
     return (user or {}).get("permissions", [])
 
-def set_user_permissions(user_id: int, perm_keys: list): collection("users").update_one({"id": int(user_id)}, {"$set": {"permissions": list(dict.fromkeys(perm_keys))}})
+def set_user_permissions(user_id: int, perm_keys: list, actor_role=None, actor_permissions=None):
+    check_user_change(actor_role, actor_permissions, target_role=_target_role(user_id), new_permissions=perm_keys)
+    collection("users").update_one({"id": int(user_id)}, {"$set": {"permissions": list(dict.fromkeys(perm_keys))}})
 def check_permission(user_id: int, perm_key: str) -> bool:
     return collection("users").count_documents({"id": int(user_id), "permissions": perm_key}, limit=1) > 0
 
 def get_all_farms(): return [{"key": k, "label": l, "emoji": e} for k, l, e in FIXED_FARMS]
 def get_user_farms(user_id: int):
-    u = collection("users").find_one({"id": int(user_id)}, {"farms": 1}); return (u or {}).get("farms", [])
-def set_user_farms(user_id: int, farm_keys: list): collection("users").update_one({"id": int(user_id)}, {"$set": {"farms": list(dict.fromkeys(farm_keys))}})
+    u = collection("users").find_one({"id": int(user_id)}, {"farms": 1, "role": 1}) or {}
+    if u.get("role") == "admin":
+        return [farm_key for farm_key, _label, _emoji in FIXED_FARMS]
+    return u.get("farms", [])
+def set_user_farms(user_id: int, farm_keys: list, actor_role=None, actor_permissions=None):
+    check_user_change(actor_role, actor_permissions, target_role=_target_role(user_id))
+    collection("users").update_one({"id": int(user_id)}, {"$set": {"farms": list(dict.fromkeys(farm_keys))}})
 def update_user_activity(user_id: int): collection("users").update_one({"id": int(user_id)}, {"$set": {"last_active": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}})
 
 
@@ -240,12 +356,12 @@ def auto_fail_missed_schedules(farm_key: str):
     for row in schedules.find({"farm_key":farm_key,"status":"pending"}):
         expected=f"{row.get('schedule_date')} {row.get('start_time')}:00"
         if expected >= cutoff: continue
+        res=schedules.update_one({"_id":row["_id"],"status":"pending"},{"$set":{"status":"failed","failed_at":now}})
+        if not res.modified_count: continue
         lid=next_id("schedule_logs")
-        with mongo_client().start_session() as session:
-            with session.start_transaction():
-                result=schedules.update_one({"_id":row["_id"],"status":"pending"},{"$set":{"status":"failed"}},session=session)
-                if not result.modified_count: continue
-                logs.insert_one({"_id":lid,"id":lid,"schedule_id":row["id"],"farm_key":farm_key,"start_at":expected,"end_at":now.strftime("%Y-%m-%d %H:%M:%S"),"target_water":row.get("water_amount"),"actual_water":0.0,"status":"failed"},session=session)
+        logs.update_one({"schedule_id":row["id"],"start_at":expected,"status":"failed"},
+                        {"$setOnInsert":{"_id":lid,"id":lid,"farm_key":farm_key,"end_at":now.strftime("%Y-%m-%d %H:%M:%S"),
+                                         "target_water":row.get("water_amount"),"actual_water":0.0}},upsert=True)
         out.append((row["id"],row.get("start_time"),expected < silent))
     return out
 
@@ -308,6 +424,15 @@ def _history(table,farm_key,start_date,end_date,measurement=None,node_id=None):
             stored_node_id=(x.get("source") or {}).get("node_id")
         if stored_node_id is not None: r["node_id"]=int(stored_node_id)
         elif node_id is not None: r["node_id"]=int(node_id)
+        if measurement == "node":
+            provenance = x.get("source") or {}
+            r["reboot_state"] = "known" if provenance.get("boot_id") else "unknown"
+            r["boot_id"] = provenance.get("boot_id")
+            r["sequence"] = provenance.get("sequence")
+            r["uptime_seconds"] = provenance.get("uptime_seconds")
+            measured_at = provenance.get("device_measured_at")
+            r["measured_at"] = measured_at.isoformat() if isinstance(measured_at, datetime) else None
+            r["received_at"] = x["timestamp"].isoformat()
         out.append(r)
     return out
 
@@ -336,7 +461,13 @@ def _latest_ts(farm_key,table,measurement,node_id=None):
 def get_latest_node(farm_key: str,node_id: int):
     x=_latest_ts(farm_key,"telemetry_node","node",node_id)
     if not x:return None
-    r={"farm_key":farm_key,"node_id":node_id,"timestamp":x["timestamp"].strftime("%Y-%m-%d %H:%M:%S")};r.update(x.get("readings",{}));return r
+    provenance=x.get("source") or {}
+    r={"farm_key":farm_key,"node_id":node_id,"timestamp":x["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),
+       "received_at":x["timestamp"].isoformat(),"measured_at":provenance.get("device_measured_at"),
+       "boot_id":provenance.get("boot_id"),"sequence":provenance.get("sequence"),
+       "uptime_seconds":provenance.get("uptime_seconds"),
+       "reboot_state":"known" if provenance.get("boot_id") else "unknown"}
+    r.update(x.get("readings",{}));return r
 def get_latest_water(farm_key: str):
     x=_latest_ts(farm_key,"telemetry_water","water");return ({"farm_key":farm_key,"timestamp":x["timestamp"].strftime("%Y-%m-%d %H:%M:%S"),**x.get("readings",{})} if x else None)
 def get_latest_flow(farm_key: str):

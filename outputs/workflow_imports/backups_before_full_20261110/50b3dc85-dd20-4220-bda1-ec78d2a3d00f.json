@@ -1,0 +1,378 @@
+{
+  "data": {
+    "id": "50b3dc85-dd20-4220-bda1-ec78d2a3d00f",
+    "type": "workflows",
+    "attributes": {
+      "createdAt": "2026-11-09T18:11:16.835046Z",
+      "description": "Checks provider failure and AI latency evidence, then asks operator to verify app fail-safe HOLD and action ledger. No AI-generated irrigation action is issued.",
+      "name": "SMIOT | W10 | AI failure safety verification",
+      "published": true,
+      "runAsUserMode": "owner",
+      "sensitivePrivileges": false,
+      "spec": {
+        "triggers": [
+          {
+            "startStepNames": [
+              "read_operational_signals"
+            ],
+            "monitorTrigger": {
+              "rateLimit": {
+                "count": 1,
+                "interval": "300s"
+              }
+            }
+          }
+        ],
+        "steps": [
+          {
+            "name": "read_operational_signals",
+            "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+            "parameters": [
+              {
+                "name": "range",
+                "value": "10m"
+              },
+              {
+                "name": "queries",
+                "value": [
+                  {
+                    "aggregator": "last",
+                    "data_source": "metrics",
+                    "name": "provider_failure",
+                    "query": "sum:smiot.ai.provider_failure{status:provider_error}"
+                  },
+                  {
+                    "aggregator": "last",
+                    "data_source": "metrics",
+                    "name": "ask_latency_ms",
+                    "query": "max:smiot.ai.ask_latency_ms{*}"
+                  }
+                ]
+              },
+              {
+                "name": "formulas",
+                "value": [
+                  {
+                    "formula": "provider_failure"
+                  },
+                  {
+                    "formula": "ask_latency_ms"
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "verify_evidence_available",
+                "branchName": "main"
+              }
+            ],
+            "errorHandlers": [
+              {
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 1
+                  }
+                },
+                "fallbackStepName": "escalate_query_failed"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 96
+              }
+            }
+          },
+          {
+            "name": "verify_evidence_available",
+            "actionId": "com.datadoghq.core.if",
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"provider_failure\", \"ask_latency_ms\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "classify_provider_error",
+                "branchName": "true"
+              },
+              {
+                "nextStepName": "escalate_missing_evidence",
+                "branchName": "false"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 216
+              }
+            }
+          },
+          {
+            "name": "escalate_query_failed",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "SMIOT | W10 | AI failure safety verification | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action."
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 552
+              }
+            }
+          },
+          {
+            "name": "escalate_missing_evidence",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W10 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 384,
+                "y": 552
+              }
+            }
+          },
+          {
+            "name": "classify_provider_error",
+            "actionId": "com.datadoghq.core.if",
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"provider_failure\")?.values?.[0]); return Number.isFinite(v) && v>0; })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "provider_error_observed",
+                "branchName": "true"
+              },
+              {
+                "nextStepName": "classify_latency",
+                "branchName": "false"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 384
+              }
+            }
+          },
+          {
+            "name": "classify_latency",
+            "actionId": "com.datadoghq.core.if",
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"ask_latency_ms\")?.values?.[0]); return Number.isFinite(v) && v>5000; })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "latency_degraded",
+                "branchName": "true"
+              },
+              {
+                "nextStepName": "no_ai_breach",
+                "branchName": "false"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 384,
+                "y": 384
+              }
+            }
+          },
+          {
+            "name": "provider_error_observed",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W10 | PROVIDER_ERROR | Confirm application action ledger shows deterministic fallback/HOLD; capture trace/error and provider status. Do not retry blindly or execute an AI irrigation recommendation."
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 552
+              }
+            }
+          },
+          {
+            "name": "latency_degraded",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W10 | AI_LATENCY_HIGH | Confirm request trace, timeout behavior and app fallback/HOLD in the action ledger. Keep decisions on deterministic rules or human review; no actuator command."
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 384,
+                "y": 552
+              }
+            }
+          },
+          {
+            "name": "no_ai_breach",
+            "actionId": "com.datadoghq.core.echo",
+            "parameters": [
+              {
+                "name": "value",
+                "value": "W10 | NO_CONFIGURED_AI_BREACH | Metrics are present and below the workflow thresholds. This does not validate recommendation quality or guarantee provider availability outside the query window."
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 768,
+                "y": 552
+              }
+            }
+          },
+          {
+            "name": "notify_smiot_app",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"Datadog ran workflow {{WorkflowName}}. Open run {{InstanceId}} to review the result and next step.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+              }
+            ],
+            "readinessGate": {
+              "thresholdType": "ANY"
+            }
+          }
+        ],
+        "handle": "smiot-w10-ai-failure-safety",
+        "connectionEnvs": [
+          {
+            "env": "default",
+            "connections": [
+              {
+                "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                "label": "SMIOT_APP_HTTP"
+              }
+            ]
+          }
+        ]
+      },
+      "tags": [
+        "env:demo",
+        "plan:workflow-10",
+        "project:smiot",
+        "safety:read-only",
+        "service:smiot-smart-farm"
+      ],
+      "updatedAt": "2026-11-10T04:30:37.165046Z"
+    },
+    "relationships": {
+      "creator": {
+        "data": {
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "type": "users"
+        }
+      },
+      "owner": {
+        "data": {
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "type": "users"
+        }
+      }
+    }
+  }
+}

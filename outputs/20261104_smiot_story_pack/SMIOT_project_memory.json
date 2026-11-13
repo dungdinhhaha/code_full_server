@@ -54,7 +54,13 @@
     "operational_role": "Kho dữ liệu vận hành chính của ứng dụng.",
     "data_model": {
       "telemetry": "Time Series collection smiot.telemetry với timeField/meta ổn định theo farm/node/source.",
-      "business_collections": ["incidents", "action ledger", "schedules", "traceability", "harvest planning"],
+      "business_collections": [
+        "incidents",
+        "action ledger",
+        "schedules",
+        "traceability",
+        "harvest planning"
+      ],
       "principle": "Giữ document gốc có nguồn, node/farm và timestamp; tách trạng thái sự cố/hành động khỏi chuỗi cảm biến để truy vết rõ."
     },
     "demonstrated_capabilities": [
@@ -199,5 +205,37 @@
     "D:/IOT Trung/code_full_server/docs/DATADOG_GUARDED_RECOVERY.md",
     "D:/IOT Trung/code_full_server/docs/INC-SMIOT-20261103T114321-BD19A22C_EVIDENCE.md"
   ],
-  "handoff_prompt": "Đọc file JSON này như ngữ cảnh dự án SMIOT. Giữ nguyên ranh giới bằng chứng: Node 2 flatline là synthetic; Bits chưa xác nhận recovery; app verifier/Mongo readback/monitor xác nhận CLEAR; EC2 workflow là ca riêng chỉ start smiot.service sau pre-check. Không đưa secret vào tài liệu. Khi tiếp tục, xác minh trạng thái hiện tại trước khi sửa hoặc tuyên bố hoàn tất."
+  "handoff_prompt": "Đọc file JSON này như ngữ cảnh dự án SMIOT. Giữ nguyên ranh giới bằng chứng: Node 2 flatline là synthetic; Bits chưa xác nhận recovery; app verifier/Mongo readback/monitor xác nhận CLEAR; EC2 workflow là ca riêng chỉ start smiot.service sau pre-check. Không đưa secret vào tài liệu. Khi tiếp tục, xác minh trạng thái hiện tại trước khi sửa hoặc tuyên bố hoàn tất.",
+  "handoff_updated_at": "2026-11-06",
+  "connections_and_access": {
+    "datadog": {
+      "connection": "Datadog MCP is connected in the current chat; verify MCP tools in the new chat before relying on it.",
+      "env": "demo",
+      "service": "smiot-smart-farm",
+      "site": "US1 (app.datadoghq.com)"
+    },
+    "aws": {
+      "cli_profile": "aws-moi",
+      "host": "13-238-30-218.sslip.io",
+      "status": "AWS identity was verified earlier in this session. CLI session credentials are temporary; run sts get-caller-identity and re-authenticate with aws login --profile aws-moi --region ap-southeast-2 if expired.",
+      "region": "ap-southeast-2",
+      "account_id": "920235987407",
+      "ec2_instance_id": "i-00bf2d3591d3ee0a"
+    },
+    "web_app": {
+      "url": "https://13-238-30-218.sslip.io/",
+      "note": "Do not store or disclose login password; ask user to use their existing admin credentials or rotate them securely if unavailable."
+    }
+  },
+  "next_work_plan": [
+    "Stabilize NiceGUI reload and persistent session configuration on EC2.",
+    "Diagnose and fix AI behavior on EC2; distinguish valid 0 ml/no-irrigation from provider errors, fail safely to HOLD, and verify AI traces.",
+    "Add per-node boot_id, uptime, sequence number, measured_at and received_at; mark historical rows without boot_id as reboot unknown.",
+    "Correct offline detection using fresh per-node samples and sequence/boot metadata; distinguish producer, broker, app and MongoDB failures.",
+    "Build one MongoDB incident black-box timeline keyed by incident_id that joins telemetry, alert, logs/traces, AI decisions, action/ack, affected lot and recovery evidence only through verified relationships.",
+    "Make MongoDB value visible through time-series queries, window/aggregation analysis, replay timeline, incident/lot impact, and same-query explain executionStats before/after indexing; use TTL only for temporary diagnostics.",
+    "Use Datadog US1 dashboards, monitors, logs, APM, LLM Observability, Bits and workflows; keep incident IDs in logs/traces/incident documents, not high-cardinality metric tags.",
+    "Rehearse three distinct cases separately: false-offline while fresh Mongo samples exist (block wrong restart); fresh-message flatline (mark untrusted, HOLD, clear only after verified recovery samples); app/service outage with dependencies healthy (restart only the app service after guards, then verify HTTP and fresh Mongo writes).",
+    "For the 5–7 minute presentation, pre-run and capture evidence; show the incident replay instead of waiting live for multi-minute monitors. Never overlap fault injections."
+  ]
 }

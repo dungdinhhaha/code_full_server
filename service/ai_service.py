@@ -5,9 +5,13 @@ Giao tiếp với Gemini API thông qua HTTP REST để xử lý hội thoại.
 Hỗ trợ Function Calling (Whitelist Tools) để truy xuất dữ liệu từ DB.
 """
 import os
+import re
 import json
+import socket
+import time
 import urllib.request
 import urllib.error
+import logging
 from service.ai_tools import (
     get_current_telemetry,
     get_sensor_history,
@@ -27,6 +31,26 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 API_KEY = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
 AI_ENABLED = os.environ.get("AI_ENABLED", "true").lower() == "true"
+LOGGER = logging.getLogger(__name__)
+
+
+def _redact(text) -> str:
+    """Remove the configured Gemini API key from text before it is printed or sent anywhere."""
+    out = str(text)
+    if API_KEY:
+        out = out.replace(API_KEY, "[REDACTED]")
+    return out
+
+
+def _observability_tags(args) -> dict:
+    """Low-cardinality tags for Datadog search (farm_key only). Never free text, never secrets."""
+    if not isinstance(args, dict):
+        return {}
+    tags = {}
+    farm_key = args.get("farm_key")
+    if isinstance(farm_key, str) and 0 < len(farm_key) <= 64 and re.fullmatch(r"[A-Za-z0-9_.-]+", farm_key):
+        tags["farm_key"] = farm_key
+    return tags
 
 # Whitelist các hàm Python mà AI được phép gọi
 FUNCTIONS = {
@@ -176,23 +200,26 @@ SYSTEM_INSTRUCTION = (
     "Phân biệt rõ: Lịch sử tưới (irrigation history) chỉ đếm lượng nước bơm bằng chế độ Tự Động. Để tính TỔNG lượng nước dùng thực tế (gồm cả bơm tay), hãy gọi hàm tiêu thụ nước tổng (total water consumption).\n"
     "Nếu dữ liệu trả về từ công cụ có chứa trường 'status' là 'OFFLINE', bạn BẮT BUỘC phải thông báo cho người dùng biết "
     "rằng thiết bị hiện đang mất kết nối và không có dữ liệu thực tế, đồng thời báo thời điểm cuối cùng nhận được tín hiệu (dựa vào trường 'last_seen').\n"
+    "Nếu 'status' là 'STALE' thì dữ liệu đã cũ (mẫu mới nhất quá ngưỡng tươi nhưng chưa tới ngưỡng mất kết nối): hãy nói rõ dữ liệu có thể đã cũ và báo 'last_seen'. "
+    "Nếu 'status' là 'UNKNOWN' thì chưa có dữ liệu để kết luận, đừng nói thiết bị online.\n"
     "Tuyệt đối không có các công cụ để điều khiển thiết bị hay sửa đổi DB. Nếu người dùng ra lệnh điều khiển thiết bị (ví dụ: bật bơm, tắt đèn) hoặc sửa dữ liệu, "
     "hãy trả lời lịch sự rằng bạn không có quyền thực hiện các hành động điều khiển hoặc sửa đổi hệ thống."
 )
 
 
 @traced("gemini.request", resource="gemini.generateContent")
-def _call_gemini_api(payload: dict) -> dict:
+def _call_gemini_api(payload: dict, obs_tags: dict | None = None) -> dict:
     """Gọi model Gemini Flash-Lite đã kiểm tra Function Calling thành công."""
     if not API_KEY or API_KEY == "chưa_có_điền_sau":
         raise ValueError("Thiếu GEMINI_API_KEY hoặc GOOGLE_API_KEY trong file .env!")
-    return _call_gemini_model(payload, "gemini-3.5-flash-lite")
+    return _call_gemini_model(payload, "gemini-3.5-flash-lite", obs_tags=obs_tags)
 
 
-def _call_gemini_model(payload: dict, model: str) -> dict:
+def _call_gemini_model(payload: dict, model: str, obs_tags: dict | None = None) -> dict:
     """Gọi một model Gemini qua GenerateContent và ghi span riêng theo model."""
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     data = json.dumps(payload).encode("utf-8")
+    obs_tags = dict(obs_tags or {})
 
     req = urllib.request.Request(
         url,
@@ -203,7 +230,7 @@ def _call_gemini_model(payload: dict, model: str) -> dict:
 
     with llm_observation(model, "Gemini GenerateContent") as llm_span:
         with trace_span("gemini.generate_content", resource=f"{model}.generateContent",
-                        **{"gemini.model": model, "gen_ai.request.model": model}):
+                        **{"gemini.model": model, "gen_ai.request.model": model, **obs_tags}):
             with urllib.request.urlopen(req, timeout=30) as response:
                 result = json.loads(response.read().decode("utf-8"))
         if llm_span is not None:
@@ -235,7 +262,7 @@ def _call_gemini_model(payload: dict, model: str) -> dict:
                     },
                     metadata={"model_name": model, "provider": "google", "usage_reported": bool(metrics)},
                     metrics=metrics or None,
-                    tags={"service": "smiot-smart-farm", "env": "demo"},
+                    tags={"service": "smiot-smart-farm", "env": "demo", **obs_tags},
                 )
             except Exception as exc:
                 # Observability must not fail a farmer's AI request.
@@ -243,16 +270,152 @@ def _call_gemini_model(payload: dict, model: str) -> dict:
         return result
 
 
+NO_DATA_TEXT = "Không có dữ liệu phù hợp để trả lời câu hỏi này."
+AI_MODEL = "gemini-3.5-flash-lite"
+AI_STATUSES = ("ok", "no_water", "no_data", "provider_error")
+
+
+class AIResult(str):
+    """Structured AI result that is still a str (the answer text) for old callers.
+
+    Fields: status ok|no_water|no_data|provider_error, amount_ml (float|None),
+    reason, model, latency_ms, action ("HOLD" when the provider failed or returned no usable data).
+    """
+
+    def __new__(cls, text: str, status: str = "ok", amount_ml: float | None = None, reason: str = "",
+                model: str | None = None, latency_ms: float | None = None):
+        obj = super().__new__(cls, text)
+        obj.status = status
+        obj.amount_ml = amount_ml
+        obj.reason = reason
+        obj.model = model
+        obj.latency_ms = latency_ms
+        return obj
+
+    @property
+    def action(self) -> str:
+        if self.status in {"provider_error", "no_data"}:
+            return "HOLD"
+        return "NO_WATER" if self.status == "no_water" else "NONE"
+
+    def as_dict(self) -> dict:
+        return {"status": self.status, "amount_ml": self.amount_ml, "reason": self.reason,
+                "model": self.model, "latency_ms": self.latency_ms, "action": self.action,
+                "text": str(self)}
+
+
+def parse_amount_ml(text) -> tuple[float | None, str | None]:
+    """(amount_ml, error). amount 0 is valid. (None, None) = not a structured recommendation."""
+    if not isinstance(text, str):
+        return None, None
+    candidate = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", candidate, flags=re.IGNORECASE | re.DOTALL)
+    if fenced:
+        candidate = fenced.group(1)
+    try:
+        value = json.loads(candidate)
+    except (TypeError, ValueError):
+        return None, None
+    if not isinstance(value, dict) or "amount_ml" not in value:
+        return None, None
+    amount = value.get("amount_ml")
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
+        return None, "invalid_amount_ml"
+    return float(amount), None
+
+
+def classify_ai_text(text: str, model: str | None = None) -> AIResult:
+    """Map model output text to an AIResult. 0 ml is no_water, never an error."""
+    if text is None or not str(text).strip() or str(text).strip() == NO_DATA_TEXT:
+        return AIResult(NO_DATA_TEXT, "no_data", None, "no_data_from_model_or_tools", model)
+    amount, err = parse_amount_ml(text)
+    if err:
+        return AIResult(NO_DATA_TEXT, "no_data", None, err, model)
+    if amount is None:
+        return AIResult(text, "ok", None, "free_text_answer", model)
+    if amount == 0:
+        return AIResult(text, "no_water", 0.0, "recommendation_no_irrigation", model)
+    return AIResult(text, "ok", amount, "recommendation", model)
+
+
+def provider_error_result(reason: str, text: str, model: str | None = AI_MODEL) -> AIResult:
+    # Record evidence at the existing provider-failure/HOLD decision point.
+    # Keep tags fixed-cardinality; reason/model text can vary and is not a tag.
+    try:
+        from service.datadog_metrics import emit_count
+        emit_count("smiot.ai.provider_failure", ["status:provider_error", "action:hold"])
+    except Exception:
+        pass  # Observability must not change the fail-safe response.
+    return AIResult(text, "provider_error", None, reason, model)
+
+
+def classify_ai_payload(payload: dict) -> dict:
+    """Interpret a farm/ai MQTT payload for the UI. Never turns missing/error into 0 ml.
+
+    Returns {status, amount_ml, reason, hold}. any status other than ok/no_water with an amount -> hold=True and no irrigation
+    (HOLD is display + publisher rule; the app does not enforce pump commands).
+    """
+    raw_status = payload.get("ai_status")
+    amount = payload.get("amount_ml")
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
+        amount = None
+    if raw_status in ("provider_error", "error"):
+        return {"status": "provider_error", "amount_ml": None,
+                "reason": str(payload.get("reason") or "ai_provider_error")[:240], "hold": True}
+    # Anything other than a clean ok/no_water with a usable amount is HOLD (never irrigate):
+    # no_data, timeout, failed, unknown ai_status, or a missing amount.
+    if raw_status not in (None, "ok", "no_water", "no_data"):
+        return {"status": "provider_error", "amount_ml": None,
+                "reason": str(payload.get("reason") or f"ai_status_{raw_status}")[:240], "hold": True}
+    if raw_status == "no_data" or amount is None:
+        return {"status": "no_data", "amount_ml": None,
+                "reason": str(payload.get("reason") or "no_amount_in_payload")[:240], "hold": True}
+    if amount == 0:
+        return {"status": "no_water", "amount_ml": 0.0,
+                "reason": str(payload.get("reason") or "recommendation_no_irrigation")[:240], "hold": False}
+    return {"status": "ok", "amount_ml": float(amount),
+            "reason": str(payload.get("reason") or "recommendation")[:240], "hold": False}
+
+
+def ask_ai(user_message: str) -> AIResult:
+    """Backward compatible: behaves like the old str answer, plus .status/.amount_ml/.reason/.model/.latency_ms."""
+    started = time.monotonic()
+    result = _ask_ai_impl(user_message)
+    result.latency_ms = round((time.monotonic() - started) * 1000, 1)
+    if result.model is None and result.status != "provider_error":
+        result.model = AI_MODEL
+    try:
+        from service.datadog_metrics import emit_count, emit_health_gauge
+        status = result.status if result.status in {"ok", "no_water", "no_data", "provider_error"} else "other"
+        emit_health_gauge("smiot.ai.ask_latency_ms", result.latency_ms, [f"status:{status}"])
+        action = result.action if result.action in {"HOLD", "NO_WATER", "NONE"} else "NONE"
+        bounded_tags = [f"status:{status}", f"action:{action}"]
+        emit_count("smiot.ai.decision_result", bounded_tags)
+        if action == "HOLD":
+            emit_count("smiot.ai.safe_fallback", bounded_tags)
+        elif status in {"ok", "no_water"}:
+            emit_count("smiot.ai.provider_success", bounded_tags)
+    except Exception:
+        # Observability must not change the application response.
+        pass
+    return result
+
+
+def ask_ai_structured(user_message: str) -> dict:
+    """Same call as ask_ai but returns the plain dict {status, amount_ml, reason, model, latency_ms, ...}."""
+    return ask_ai(user_message).as_dict()
+
+
 @traced("smiot.ai.ask", resource="ai.ask")
-def ask_ai(user_message: str) -> str:
+def _ask_ai_impl(user_message: str) -> AIResult:
     """
     Hàm chính xử lý tin nhắn từ Telegram, quyết định gọi tool và trả về câu trả lời cuối cùng.
     """
     if not AI_ENABLED:
-        return "🤖 Tính năng AI hiện đang tắt. Vui lòng bật AI_ENABLED=true trong file .env để sử dụng."
+        return provider_error_result("ai_disabled", "🤖 Tính năng AI hiện đang tắt. Vui lòng bật AI_ENABLED=true trong file .env để sử dụng.", None)
 
     if not API_KEY or API_KEY == "chưa_có_điền_sau":
-        return "⚠️ Chưa cấu hình API Key của AI. Vui lòng thêm GEMINI_API_KEY hoặc GOOGLE_API_KEY vào file .env."
+        return provider_error_result("missing_api_key", "⚠️ Chưa cấu hình API Key của AI. Vui lòng thêm GEMINI_API_KEY hoặc GOOGLE_API_KEY vào file .env.", None)
 
     try:
         # Lấy thời gian hiện tại của hệ thống để làm ngữ cảnh cho AI
@@ -286,12 +449,12 @@ def ask_ai(user_message: str) -> str:
         # Kiểm tra xem Model có yêu cầu gọi Function không
         candidates = res.get("candidates", [])
         if not candidates:
-            return "Không có dữ liệu phù hợp để trả lời câu hỏi này."
-            
+            return AIResult(NO_DATA_TEXT, "no_data", None, "no_candidates", AI_MODEL)
+
         model_response_content = candidates[0].get("content", {})
         parts = model_response_content.get("parts", [])
         if not parts:
-            return "Không có dữ liệu phù hợp để trả lời câu hỏi này."
+            return AIResult(NO_DATA_TEXT, "no_data", None, "empty_parts", AI_MODEL)
 
         # Kiểm tra yêu cầu gọi Function Call
         function_call = next(
@@ -305,14 +468,15 @@ def ask_ai(user_message: str) -> str:
             
             # Kiểm tra xem function có nằm trong whitelist không
             if func_name in FUNCTIONS:
-                print(f"🧠 [AI] Gọi tool: {func_name} với đối số: {func_args}")
+                LOGGER.info("[AI] tool=%s args=%s", func_name, func_args)
                 # Thực thi hàm python local
                 tool_func = FUNCTIONS[func_name]
                 try:
-                    with trace_span("smiot.ai.tool", resource=func_name, **{"ai.tool": func_name}):
+                    with trace_span("smiot.ai.tool", resource=func_name,
+                                    **{"ai.tool": func_name, **_observability_tags(func_args)}):
                         tool_result = tool_func(**func_args)
                 except Exception as e:
-                    print(f"❌ [AI] Lỗi thực thi tool {func_name}: {e}")
+                    LOGGER.warning("[AI] tool execution failed tool=%s error=%s", func_name, _redact(e))
                     tool_result = {}
                 
                 # Nếu tool trả về rỗng (dict rỗng hoặc list rỗng), ta trả về chuỗi thông báo rỗng cho AI để nó xử lý
@@ -353,29 +517,33 @@ def ask_ai(user_message: str) -> str:
                 }
                 
                 # Gọi Gemini lần 2
-                res_step2 = _call_gemini_api(payload_step2)
+                res_step2 = _call_gemini_api(payload_step2, obs_tags=_observability_tags(func_args))
                 candidates_step2 = res_step2.get("candidates", [])
                 if candidates_step2:
                     parts_step2 = candidates_step2[0].get("content", {}).get("parts", [])
                     if parts_step2:
-                        return parts_step2[0].get("text", "Không có dữ liệu phù hợp để trả lời câu hỏi này.")
+                        return classify_ai_text(parts_step2[0].get("text", ""), AI_MODEL)
             else:
-                print(f"⚠️ [AI] Cảnh báo: AI cố gắng gọi tool không hợp lệ: {func_name}")
-                return "Không có dữ liệu phù hợp để trả lời câu hỏi này."
+                LOGGER.warning("[AI] invalid tool requested: %s", func_name)
+                return AIResult(NO_DATA_TEXT, "no_data", None, "invalid_tool_requested", AI_MODEL)
         else:
             # Nếu AI tự trả lời trực tiếp mà không gọi tool
-            return parts[0].get("text", "Không có dữ liệu phù hợp để trả lời câu hỏi này.")
+            return classify_ai_text(parts[0].get("text", ""), AI_MODEL)
 
     except urllib.error.HTTPError as he:
-        err_msg = he.read().decode("utf-8")
-        print(f"❌ [AI] HTTP Error calling Gemini: {he.code} - {err_msg}")
+        err_msg = _redact(he.read().decode("utf-8", errors="replace"))
+        print(f"[AI] Gemini HTTP error code={he.code} error={err_msg}")
+        LOGGER.error("[AI] Gemini HTTP error code=%s error=%s", he.code, err_msg)
         if he.code in (429, 503):
-            return "⚠️ Gemini đang quá tải tạm thời. Hãy thử lại sau ít phút."
+            return provider_error_result(f"http_{he.code}", "⚠️ Gemini đang quá tải tạm thời. Hãy thử lại sau ít phút. (AI lỗi - HOLD, không tưới)")
         if he.code in (401, 403):
-            return "⚠️ Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập Gemini API."
-        return "⚠️ Lỗi kết nối tới dịch vụ AI. Vui lòng kiểm tra lại cấu hình API Key."
+            return provider_error_result(f"http_{he.code}", "⚠️ Gemini từ chối API key. Hãy kiểm tra key và quyền truy cập Gemini API. (AI lỗi - HOLD, không tưới)")
+        return provider_error_result(f"http_{he.code}", "⚠️ Lỗi kết nối tới dịch vụ AI. Vui lòng kiểm tra lại cấu hình API Key. (AI lỗi - HOLD, không tưới)")
+    except (TimeoutError, socket.timeout, urllib.error.URLError) as e:
+        LOGGER.error("[AI] Gemini timeout/network error=%s", type(e).__name__)
+        return provider_error_result("timeout_or_network", "⚠️ Không kết nối được dịch vụ AI (timeout/mạng). (AI lỗi - HOLD, không tưới)")
     except Exception as e:
-        print(f"❌ [AI] Lỗi xử lý AI: {e}")
-        return "Không có dữ liệu phù hợp để trả lời câu hỏi này."
+        LOGGER.exception("[AI] processing error: %s", _redact(e))
+        return provider_error_result(f"exception_{type(e).__name__}", "⚠️ Lỗi xử lý AI. (AI lỗi - HOLD, không tưới)")
 
-    return "Không có dữ liệu phù hợp để trả lời câu hỏi này."
+    return AIResult(NO_DATA_TEXT, "no_data", None, "no_response_text", AI_MODEL)

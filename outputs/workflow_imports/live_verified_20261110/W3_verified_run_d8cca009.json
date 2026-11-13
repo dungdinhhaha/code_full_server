@@ -1,0 +1,64 @@
+{
+  "workflow": "W3",
+  "verification": {
+    "status": "already_healthy",
+    "healthy_mqtt": true,
+    "http_status": 200,
+    "verified": true,
+    "healthy_app": true,
+    "healthy_mongodb": true,
+    "ssm_status": "Success",
+    "fresh_telemetry": true
+  },
+  "ended_at_utc": "2026-11-10T09:45:45.025193Z",
+  "published": true,
+  "workflow_id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+  "workflow_name": "SMIOT | Guarded EC2 app recovery",
+  "monitor_trigger_count": 2,
+  "steps": [
+    {
+      "name": "Send_command",
+      "state": "SUCCEEDED",
+      "branch": "main",
+      "error_code": null
+    },
+    {
+      "name": "notify_smiot_app",
+      "state": "SUCCEEDED",
+      "branch": "main",
+      "error_code": null
+    },
+    {
+      "name": "verify_smiot_recovery",
+      "state": "SUCCEEDED",
+      "branch": "main",
+      "error_code": null
+    },
+    {
+      "name": "classify_smiot_recovery",
+      "state": "SUCCEEDED",
+      "branch": "true",
+      "error_code": null
+    },
+    {
+      "name": "classify_smiot_guard_outcome",
+      "state": "SUCCEEDED",
+      "branch": "true",
+      "error_code": null
+    },
+    {
+      "name": "notify_already_healthy_smiot_app",
+      "state": "SUCCEEDED",
+      "branch": "main",
+      "error_code": null
+    }
+  ],
+  "app_notification": {
+    "app_bell_updated": true,
+    "http_status": 202,
+    "stored": true
+  },
+  "run_id": "d8cca009-e355-4791-8e8e-fa853d7971a2",
+  "started_at_utc": "2026-11-10T09:45:37.501479Z",
+  "overall_state": "SUCCEEDED"
+}

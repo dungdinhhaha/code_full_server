@@ -1,0 +1,482 @@
+{
+  "description": "W6 is monitor-triggered and farm-scoped. It distinguishes unavailable Mongo freshness evidence, absent recent input, and stale advisory evaluation; all outcomes notify the app and fail closed. It never restarts the shared SMIOT process.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "env:demo",
+    "evidence:required",
+    "maturity:level5-design",
+    "plan:workflow-06",
+    "project:smiot",
+    "safety:fail-closed",
+    "safety:read-only",
+    "service:smiot-smart-farm"
+  ],
+  "name": "SMIOT | W6 | Detector heartbeat review",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "verify_evidence_available"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "2m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "watchdog",
+                "query": "max:smiot.detector.watchdog_heartbeat{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "input_seen",
+                "query": "max:smiot.detector.input_seen{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "input_probe_ok",
+                "query": "min:smiot.detector.input_probe_ok{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "input_age",
+                "query": "max:smiot.detector.input_age_seconds{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "evaluation_seen",
+                "query": "max:smiot.detector.evaluation_seen{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "evaluation_age",
+                "query": "max:smiot.detector.evaluation_age_seconds{detector:agronomic_advisory,farm:{{Trigger.farm_key}}}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "watchdog"
+              },
+              {
+                "formula": "input_seen"
+              },
+              {
+                "formula": "input_probe_ok"
+              },
+              {
+                "formula": "input_age"
+              },
+              {
+                "formula": "evaluation_seen"
+              },
+              {
+                "formula": "evaluation_age"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "name": "verify_evidence_available",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 216
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const get=k=>Number(c.find(x=>x.name===k)?.values?.[0]); const i=get(\"input_seen\"),p=get(\"input_probe_ok\"),e=get(\"evaluation_seen\"); const ia=get(\"input_age\"),ea=get(\"evaluation_age\"); return Number.isFinite(i)&&Number.isFinite(p)&&Number.isFinite(e)&&(i<1||Number.isFinite(ia))&&(e<1||Number.isFinite(ea)); })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "classify_probe_status"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 384
+          }
+        },
+        "name": "classify_probe_status",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_input_freshness",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "mongodb_probe_unknown",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const get=k=>Number(c.find(x=>x.name===k)?.values?.[0]); return get(\"input_probe_ok\")===1; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "name": "classify_input_freshness",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 384
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const get=k=>Number(c.find(x=>x.name===k)?.values?.[0]); return get(\"input_seen\")===1&&get(\"input_age\")<=180; })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evaluation_freshness",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "no_fresh_input",
+            "branchName": "false"
+          }
+        ]
+      },
+      {
+        "name": "classify_evaluation_freshness",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 480
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const get=k=>Number(c.find(x=>x.name===k)?.values?.[0]); return get(\"evaluation_seen\")===1&&get(\"evaluation_age\")<=180; })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "detector_stalled",
+            "branchName": "false"
+          }
+        ]
+      },
+      {
+        "name": "mongodb_probe_unknown",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 768,
+            "y": 648
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W6 | DECISION=INPUT_FRESHNESS_UNKNOWN | MongoDB freshness probe failed; absence of an input timestamp is not proof of missing input. Do not classify detector/source failure. ACTION=NONE; preserve incident and route to operator."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "name": "no_fresh_input",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 648
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W6 | DECISION=NO_RECENT_INPUT | A periodic watchdog is alive, but no persisted sample is recent enough for the advisory detector. This does not prove the detector is broken. Check MQTT/source and Mongo freshness; ACTION=NONE; keep incident open and notify operator."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "name": "detector_stalled",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 648
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W6 | DECISION=INPUT_FRESH_EVALUATION_STALLED | Fresh persisted input exists but advisory evaluation has not completed recently. The detector shares the SMIOT process, so do not restart that process automatically. Preserve evidence, keep incident open and hand to operator for scoped diagnosis."
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W6 | WATCHDOG_AND_EVALUATION_FRESH | Independent watchdog, MongoDB freshness probe, persisted input, and advisory evaluation are recent. This is health evidence only, not incident recovery proof; verify finding persistence and incident-specific evidence before resolving.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W6 | WATCHDOG_MISSING_OR_UNKNOWN | Independent heartbeat/evidence unavailable or malformed. Confirm DogStatsD ingestion and app health, then escalate. Do not restart from missing evidence; retain uncertainty.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W6 | Detector heartbeat review | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "name": "escalate_missing_evidence",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W6 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "nextStepName": "notify_smiot_app",
+            "branchName": "main"
+          }
+        ]
+      },
+      {
+        "name": "notify_smiot_app",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W6 detector check completed. Open Datadog run {{InstanceId}} to see whether input was absent, Mongo freshness could not be checked, or evaluation stalled. No automatic restart or actuator command was issued.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      }
+    ],
+    "handle": "smiot-w06-detector-heartbeat",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ],
+    "connectionEnvs": [
+      {
+        "env": "default",
+        "connections": [
+          {
+            "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+            "label": "SMIOT_APP_HTTP"
+          }
+        ]
+      }
+    ],
+    "inputSchema": {
+      "parameters": [
+        {
+          "name": "farm_key",
+          "type": "STRING"
+        }
+      ]
+    }
+  }
+}

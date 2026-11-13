@@ -1,0 +1,8 @@
+{
+  "step": "A8_summary",
+  "summary_file": "D:\\IOT Trung\\code_full_server\\outputs\\round2\\ca2\\SUMMARY.md",
+  "dry_run_executed": false,
+  "dry_run_reason": "thieu --incident-id: id incident chi lay duoc tu /incident (can dang nhap)",
+  "dry_run_json_file": null,
+  "incident_id": null
+}

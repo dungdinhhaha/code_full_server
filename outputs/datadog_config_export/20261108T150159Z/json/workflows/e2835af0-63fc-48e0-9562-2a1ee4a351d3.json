@@ -1,0 +1,212 @@
+{
+  "attributes": {
+    "createdAt": "2026-11-05T21:15:26.351Z",
+    "description": "Ghi quyết định từ chối restart khi mẫu MongoDB còn mới; không thực hiện hành động EC2 hay thiết bị.",
+    "name": "SMIOT | Ca 1 | Refuse restart when samples fresh",
+    "published": true,
+    "runAsUserMode": "owner",
+    "sensitivePrivileges": false,
+    "spec": {
+      "handle": "smiot-ca1-refuse-restart",
+      "inputSchema": {
+        "parameters": [
+          {
+            "defaultValue": 90,
+            "name": "threshold_seconds",
+            "type": "NUMBER"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+          "display": {
+            "bounds": {
+              "x": 0,
+              "y": 96
+            }
+          },
+          "errorHandlers": [
+            {
+              "fallbackStepName": "Echo_2",
+              "retryStrategy": {
+                "kind": "RETRY_STRATEGY_LINEAR",
+                "linear": {
+                  "interval": "1s",
+                  "maxRetries": 2
+                }
+              }
+            }
+          ],
+          "name": "query_freshness_both_sources",
+          "outboundEdges": [
+            {
+              "branchName": "main",
+              "nextStepName": "If_condition"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "range",
+              "value": "3m"
+            },
+            {
+              "name": "queries",
+              "value": [
+                {
+                  "aggregator": "last",
+                  "data_source": "metrics",
+                  "name": "a",
+                  "query": "max:smiot.telemetry.sample_age_seconds{farm:greenhouse_a}"
+                },
+                {
+                  "aggregator": "last",
+                  "data_source": "metrics",
+                  "name": "b",
+                  "query": "max:smiot.external.sample_age_seconds{farm:greenhouse_a}"
+                }
+              ]
+            },
+            {
+              "name": "formulas",
+              "value": [
+                {
+                  "formula": "a"
+                },
+                {
+                  "formula": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "actionId": "com.datadoghq.core.if",
+          "display": {
+            "bounds": {
+              "x": 0,
+              "y": 264
+            }
+          },
+          "name": "If_condition",
+          "outboundEdges": [
+            {
+              "branchName": "true",
+              "nextStepName": "Echo"
+            },
+            {
+              "branchName": "false",
+              "nextStepName": "Echo_1"
+            }
+          ],
+          "parameters": [
+            {
+              "name": "joinOperator",
+              "value": "and"
+            },
+            {
+              "name": "conditions",
+              "value": [
+                {
+                  "comparisonOperator": "eq",
+                  "leftValue": "${ (() => { const cols=Steps.query_freshness_both_sources.data?.attributes?.columns || []; const a=cols.find(c=>c.name===\"a\")?.values?.[0]; const b=cols.find(c=>c.name===\"b\")?.values?.[0]; return typeof a===\"number\" && Number.isFinite(a) && a<Trigger.threshold_seconds && typeof b===\"number\" && Number.isFinite(b) && b<Trigger.threshold_seconds; })() }",
+                  "rightValue": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "actionId": "com.datadoghq.core.echo",
+          "display": {
+            "bounds": {
+              "x": 0,
+              "y": 432
+            }
+          },
+          "name": "Echo",
+          "parameters": [
+            {
+              "name": "value",
+              "value": "${ \"REFUSED_RESTART | CA1 | synthetic demo | worst_node_age_s=\" + Steps.query_freshness_both_sources.data.attributes.columns[0].values[0] + \" | external_farm_age_s=\" + Steps.query_freshness_both_sources.data.attributes.columns[1].values[0] + \" | threshold=\" + Trigger.threshold_seconds + \" | no EC2/device action\" }"
+            }
+          ]
+        },
+        {
+          "actionId": "com.datadoghq.core.echo",
+          "display": {
+            "bounds": {
+              "x": 384,
+              "y": 432
+            }
+          },
+          "name": "Echo_1",
+          "parameters": [
+            {
+              "name": "value",
+              "value": "${ \"ESCALATE_HUMAN | CA1 | samples not confirmed fresh | A=\" + (Steps.query_freshness_both_sources.data?.attributes?.columns?.[0]?.values?.[0] ?? \"missing\") + \" B=\" + (Steps.query_freshness_both_sources.data?.attributes?.columns?.[1]?.values?.[0] ?? \"missing\") + \" | no automatic restart\" }"
+            }
+          ]
+        },
+        {
+          "actionId": "com.datadoghq.core.echo",
+          "display": {
+            "bounds": {
+              "x": 384,
+              "y": 264
+            }
+          },
+          "name": "Echo_2",
+          "parameters": [
+            {
+              "name": "value",
+              "value": "ESCALATE_HUMAN | CA1 | metric query failed; samples not confirmed fresh | no automatic restart"
+            }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "monitorTrigger": {
+            "rateLimit": {
+              "count": 1,
+              "interval": "300s"
+            }
+          },
+          "startStepNames": [
+            "query_freshness_both_sources"
+          ]
+        },
+        {
+          "agentTrigger": {},
+          "startStepNames": [
+            "query_freshness_both_sources"
+          ]
+        }
+      ]
+    },
+    "tags": [
+      "env:demo",
+      "project:smiot",
+      "safety:virtual-only",
+      "service:smiot-smart-farm"
+    ],
+    "updatedAt": "2026-11-06T03:05:53.307Z"
+  },
+  "id": "e2835af0-63fc-48e0-9562-2a1ee4a351d3",
+  "relationships": {
+    "creator": {
+      "data": {
+        "id": "c0e58282-2993-4eb8-beac-cfbee5a118d7",
+        "type": "users"
+      }
+    },
+    "owner": {
+      "data": {
+        "id": "c0e58282-2993-4eb8-beac-cfbee5a118d7",
+        "type": "users"
+      }
+    }
+  },
+  "type": "workflows"
+}

@@ -1,0 +1,60 @@
+{
+  "additionalProperties": {
+    "created_at": 1793659157000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-06T03:15:52+00:00"
+  },
+  "created": "2026-11-02T22:39:17.115Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245830
+    },
+    "email": "tiendung54.be@gmail.com",
+    "handle": "tiendung54.be@gmail.com",
+    "name": "Dũng Tiến"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339990232,
+  "matchingDowntimes": [],
+  "message": "{{#is_alert}}MQTT dependency check is unhealthy. Check broker connectivity, MQTT handler logs, then verify whether the telemetry source itself is online. Do not restart a physical pump.{{/is_alert}}\n\n{{#is_no_data}}No MQTT health signal. Check app and watchdog heartbeat.{{/is_no_data}}\n\n{{#is_recovery}}MQTT health recovered. Confirm a new MQTT message was persisted in MongoDB before closing.{{/is_recovery}}",
+  "modified": "2026-11-03T17:10:19.405Z",
+  "multi": false,
+  "name": "SMIOT | MQTT dependency unhealthy",
+  "options": {
+    "evaluationDelay": 60,
+    "includeTags": true,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "onMissingData": "show_and_notify_no_data",
+    "requireFullWindow": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 1
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "min(last_5m):min:smiot.dependency.mqtt.up{*} < 1",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "*": {
+        "lastNodataTs": 1793934772,
+        "lastNotifiedTs": 1793934892,
+        "lastResolvedTs": 1793934892,
+        "lastTriggeredTs": 1793934772,
+        "name": "*",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "service:smiot-smart-farm",
+    "env:demo",
+    "component:mqtt",
+    "source:app_healthcheck",
+    "managed_by:codex"
+  ],
+  "type": "query alert"
+}

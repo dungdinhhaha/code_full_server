@@ -3,6 +3,15 @@
 > [!IMPORTANT]
 > Phần telemetry cảm biến và phần GDD tăng tốc trong README này là **dữ liệu mô phỏng**. Chúng dùng để trình diễn pipeline và Datadog, không phải số đo từ cảm biến vật lý hay dự báo thu hoạch thực tế.
 
+## Trạng thái hiện tại
+
+- Cơ sở dữ liệu: MongoDB Community 8.0.34 self-managed chạy trên EC2 cùng app, **không phải MongoDB Atlas**. Collection telemetry là Time Series.
+- Dữ liệu: **synthetic (mô phỏng)** cho demo; không phải số đo từ cảm biến vật lý.
+- SLO: chỉ là snapshot; lịch sử đang tích lũy nên chưa đủ cửa sổ để kết luận.
+- Recovery: Bits Investigation **chưa xác nhận recovery**; kết luận hiện có chỉ mô tả cảnh báo và kịch bản synthetic.
+- Phần Atlas, AP1 và localhost bên dưới là **lịch sử** trước khi chuyển môi trường.
+- Health: `GET /healthz` (không cần đăng nhập) trả trạng thái app, Mongo, MQTT và tuổi mẫu mới nhất. Session cần `NICEGUI_STORAGE_SECRET` cố định trên production; `SMIOT_RECONNECT_TIMEOUT` (mặc định 90 giây) quyết định thời gian giữ session khi client mất kết nối.
+
 ## Trạng thái cloud đã kiểm chứng — 2026-11-03 (đọc phần này trước)
 
 Trạng thái dưới đây là snapshot mới nhất; các mục Atlas/AP1 và hướng dẫn chạy localhost ở các phần sau là **lịch sử trước khi chuyển môi trường**, không phải cấu hình cloud hiện tại.
@@ -10,7 +19,7 @@ Trạng thái dưới đây là snapshot mới nhất; các mục Atlas/AP1 và 
 - AWS profile `aws-moi` xác minh account 920235987407, region ap-southeast-2; EC2 i-00bf2d3591d3ee0a2 (t3.small) đang chạy. Profile mặc định trỏ account khác (255103685766), vì vậy dùng `--profile aws-moi` khi thao tác dự án. Các service smiot, mongod (MongoDB Community), mosquitto, nginx, datadog-agent, wokwi-bridge đều active.
 - Kiểm tra HTTPS công khai từ desktop: /, /login, /data, /chart, /traceability đều trả HTTP 200; đây là smoke test thủ công, chưa phải Datadog Synthetic và chưa kiểm tra đăng nhập/luồng nghiệp vụ.
 - MongoDB Community 8.0.34 trên cùng EC2 là cơ sở dữ liệu đang chạy của app; không phải Atlas. Collection telemetry là Time Series (timestamp, meta); dữ liệu cảm biến trong demo được gắn nhãn synthetic. App và DB cùng trên EC2 tạo điểm lỗi đơn, phù hợp demo ngắn hạn chứ chưa phải HA/production.
-- Datadog canonical cho dự án là US1: [Dashboard SMIOT](https://app.datadoghq.com/dashboard/nkc-685-vw8). Dashboard có 9 widgets, gồm telemetry, trạng thái Mongo/MQTT, SLO và 2 biểu đồ MongoDB DBM theo database_instance: throughput truy vấn và tổng query execution time.
+- Datadog canonical cho dự án là US1: [Dashboard SMIOT](https://app.datadoghq.com/dashboard/nkc-685-vw8). Dashboard có 8 widgets: 5 timeseries (3 telemetry và 2 biểu đồ MongoDB DBM theo database_instance: throughput truy vấn và tổng query execution time), 2 query_value (trạng thái Mongo/MQTT) và 1 SLO.
 - Monitor [Node 2 flatline (synthetic demo)](https://app.datadoghq.com/monitors/339977691) đang theo dõi số đo live; trạng thái chuyển theo dữ liệu publisher, không mặc định phải Alert.
 - Đã chạy và xác nhận luồng phục hồi đầu-cuối ngày 2026-11-03 trên dữ liệu mô phỏng: publisher ACK chuyển Node 2 sang flatline 2,4%; monitor chuyển Alert; Datadog workflow gọi bộ kiểm tra phục hồi trong app; app từ chối CLEAR khi monitor còn Alert; sau khi publisher ACK chế độ bình thường, monitor chuyển OK, app xác minh 6 mẫu MongoDB mới (38,6–40,2%, mới nhất dưới 90 giây), gửi CLEAR và nhận ACK từ virtual PLC với cả 8 đầu ra bơm OFF. Action ledger MongoDB ghi trạng thái `verified`; lần thử này chứng minh kênh telemetry phục hồi và logic an toàn của virtual PLC, không chẩn đoán hay sửa đầu dò vật lý.
 - Bridge đã cập nhật để chỉ nhả cờ HOLD và phát lệnh LED Wokwi `CLEAR` sau khi nhận sự kiện MongoDB/MQTT `CLEAR` có trạng thái `verified` từ bộ kiểm tra app, với monitor OK, ít nhất 6 mẫu mới/dao động và outputs off. Nó không tự CLEAR chỉ vì monitor OK. Đã triển khai lên EC2 và xác nhận log bridge `Application recovery verifier confirmed CLEAR; bridge latch released and Wokwi visual output cleared`; simulator Wokwi không cần chạy để app xác minh/điều khiển virtual PLC, và hiện Wokwi CLI chưa hoạt động.

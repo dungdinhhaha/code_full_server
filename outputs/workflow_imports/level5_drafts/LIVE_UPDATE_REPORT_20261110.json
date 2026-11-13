@@ -1,0 +1,58 @@
+{
+  "updated_at_utc": "2026-11-10T04:50:30Z",
+  "site": "Datadog US1",
+  "result": "All 10 existing workflows have the validated HTTP notification action and were GET-verified. No duplicates created. W1 monitor+API triggers preserved. W4 monitor handle repaired by message-only replacement.",
+  "notification": {
+    "connection": "Verified HTTP Action Connection bound in all ten workflows; connection secret is not in workflow JSON.",
+    "schema": "com.datadoghq.http.request uses `body` with serialized JSON string and top-level context variables {{InstanceId}}, {{WorkflowName}}, {{WorkflowId}}.",
+    "safe_test_runs": [
+      {
+        "workflow": "W1",
+        "workflow_id": "b9e72b04-1580-45f8-ae1e-628124a19065",
+        "instance_id": "bfb0cf91-4580-4838-a9c5-05b270f73331",
+        "started_at_utc": "2026-11-10T04:29:25.063638Z",
+        "status": "Success",
+        "notify_step": "SUCCEEDED",
+        "test": "Literal safe smoke notice; no actuator action ran."
+      },
+      {
+        "workflow": "W1",
+        "workflow_id": "b9e72b04-1580-45f8-ae1e-628124a19065",
+        "instance_id": "6d3952d1-8ba9-4bfb-acd0-0db0b5cbadee",
+        "started_at_utc": "2026-11-10T04:29:41.253724Z",
+        "status": "Success",
+        "notify_step": "SUCCEEDED",
+        "test": "Dynamic workflow context variables rendered and notification step succeeded; no actuator action ran."
+      }
+    ]
+  },
+  "w1_api_trigger": {
+    "workflow_id": "b9e72b04-1580-45f8-ae1e-628124a19065",
+    "handle": "smiot-w01-plc-safety-trip",
+    "api_trigger_present": true,
+    "monitor_trigger_preserved": true,
+    "published": true
+  },
+  "w4_monitor": {
+    "monitor_id": "342585836",
+    "workflow_handle": "smiot-ca1-refuse-restart-1",
+    "backup": "outputs/workflow_imports/backups_pre_patch_20261110_w4_monitor_handle/monitor_342585836_before.json",
+    "verification": "GET confirmed updated mention; name/query/options unchanged."
+  },
+  "w3_limit": {
+    "workflow_id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+    "handle": "smiot-guarded-ec2-recovery",
+    "current_path": "SSM SendCommand -> app notification",
+    "runtime_config": "published; DryRun=false; monitor trigger retained; app notice severity=warning",
+    "notice": "States that command submission is not execution/recovery proof; status remains pending/unknown and incident must stay open until SSM completion, /healthz, MongoDB, and fresh telemetry are verified.",
+    "investigation": "Get command action is listed, but current visible Action Catalog did not confirm its output contract; an assumed command.Status completion gate was therefore not kept live.",
+    "test": "No W3 SSM action executed. Manual API instance call was rejected before any step because W3 has no API trigger.",
+    "backup": "outputs/workflow_imports/backups_pre_patch_20261110_w3_completion_verification/w3_before_getcommand_20261110T044655Z.json"
+  },
+  "backup_directory": "outputs/workflow_imports/backups_pre_patch_20261110_notification_schema_v2",
+  "verified_readbacks": "outputs/workflow_imports/live_verified_20261110/",
+  "workflow_count": 10,
+  "all_notification_nodes_get_verified": true,
+  "live_write_scope": "Only workflow notification nodes, W1 API trigger (existing monitor trigger retained), and W4 monitor workflow mention were changed. No monitor queries, thresholds, or action connections changed.",
+  "w3_readback": "outputs/workflow_imports/live_verified_20261110/smiot-guarded-ec2-recovery_373ed0c0-4509-4fcd-a067-f54f0becc00e.json"
+}

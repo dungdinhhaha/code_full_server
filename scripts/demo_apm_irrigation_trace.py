@@ -7,6 +7,7 @@ are simulated in this script; it never publishes to the farm control topic.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import threading
 import time
@@ -38,6 +39,26 @@ finished = threading.Event()
 result: dict = {}
 
 
+def _parse_recommendation(text: str) -> dict | None:
+    """Accept only a structured, non-negative AI amount; zero is a valid decision."""
+    if not isinstance(text, str):
+        return None
+    candidate = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", candidate, flags=re.IGNORECASE | re.DOTALL)
+    if fenced:
+        candidate = fenced.group(1)
+    try:
+        value = json.loads(candidate)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    amount = value.get("amount_ml")
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
+        return None
+    return {"amount_ml": float(amount), "reason": str(value.get("reason", ""))[:240]}
+
+
 def on_connect(client, userdata, connect_flags, reason_code, properties):
     if reason_code.is_failure:
         print(f"MQTT connection failed (code={reason_code})")
@@ -55,23 +76,27 @@ def on_message(client, userdata, msg):
         payload.pop("_dd_trace_context", None)
         if msg.topic == SENSOR_TOPIC:
             with trace_span("smiot.demo.gemini.irrigation_decision", resource="Gemini irrigation recommendation",
-                            **{"farm.key": payload.get("farm_key"), "sensor.synthetic": True,
+                **{"farm.key": payload.get("farm_key"), "sensor.synthetic": True,
                                "gemini.configured": bool(API_KEY and AI_ENABLED)}):
                 if API_KEY and AI_ENABLED:
                     prompt = (
                         "This is synthetic hackathon demo data, not a real sensor. "
                         f"Greenhouse {payload.get('farm_key')} Node {payload.get('node')} soil humidity is "
                         f"{payload.get('soil_humidity')}%, and the stream is deliberately marked flatline. "
-                        "Give a short irrigation recommendation. Explicitly say to verify the sensor and "
-                        "do not claim that any physical pump was operated."
+                        "Return exactly one JSON object with numeric amount_ml >= 0 and a short reason. "
+                        "amount_ml=0 is a valid no-irrigation decision. Explicitly say to verify the sensor; "
+                        "this is a recommendation only and no physical pump is operated."
                     )
                     recommendation = ask_ai(prompt)
                 else:
                     recommendation = "Gemini chưa được gọi: hãy cấu hình GEMINI_API_KEY và AI_ENABLED=true trong .env."
+            parsed_recommendation = _parse_recommendation(recommendation)
 
             command = {
                 **payload,
                 "recommendation": recommendation,
+                "ai_status": "ok" if parsed_recommendation is not None else "error",
+                "amount_ml": parsed_recommendation["amount_ml"] if parsed_recommendation else None,
                 "simulated": True,
             }
             client.publish(PLC_TOPIC, json.dumps(inject_mqtt_trace_context(command)))
@@ -80,12 +105,19 @@ def on_message(client, userdata, msg):
             with trace_span("smiot.demo.plc.simulate", resource="PLC safety gate (simulation)",
                             **{"farm.key": payload.get("farm_key"), "plc.simulated": True}):
                 # A flatline reading is untrusted; the demo safety gate holds the pump.
-                action = "HOLD" if payload.get("flatline") else "WOULD_WATER"
+                if payload.get("flatline") or payload.get("ai_status") != "ok":
+                    action = "HOLD"
+                elif payload.get("amount_ml") == 0:
+                    action = "NO_WATER"
+                else:
+                    action = "WOULD_WATER"
                 simulated_command = {
                     "farm_key": payload.get("farm_key"),
                     "node": payload.get("node"),
                     "action": action,
                     "recommendation": payload.get("recommendation", ""),
+                    "amount_ml": payload.get("amount_ml"),
+                    "ai_status": payload.get("ai_status"),
                     "simulated": True,
                 }
                 client.publish(FLOW_TOPIC, json.dumps(inject_mqtt_trace_context(simulated_command)))
@@ -94,7 +126,7 @@ def on_message(client, userdata, msg):
             with trace_span("smiot.demo.flow_meter.confirm", resource="flow meter confirmation (simulation)",
                             **{"farm.key": payload.get("farm_key"), "flow.simulated": True}):
                 result.update(payload)
-                result["flow_lpm"] = 0.0 if payload.get("action") == "HOLD" else 20.5
+                result["flow_lpm"] = 0.0 if payload.get("action") in {"HOLD", "NO_WATER"} else 20.5
                 print("Synthetic end-to-end result:")
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             finished.set()

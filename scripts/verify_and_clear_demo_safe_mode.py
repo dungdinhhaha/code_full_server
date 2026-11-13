@@ -72,6 +72,27 @@ def main() -> int:
         sort=[("acknowledged_at", DESCENDING)],
     )
     if not hold:
+        # Bridge bo qua HOLD trung khi HOLD cu van dang giu (log: "duplicate command was suppressed"),
+        # nen alert moi co the khong co ban ghi ack moi. Chap nhan HOLD da ack gan nhat cua monitor
+        # CHI KHI chua co CLEAR da xac minh sau do, va gan kiem chung vao su co dang mo.
+        latest = ledger.find_one(
+            {"action": "HOLD", "source": "datadog_safe_mode_workflow", "state": "acknowledged", "monitor_id": monitor_id},
+            sort=[("acknowledged_at", DESCENDING)],
+        )
+        if latest:
+            cleared_after = ledger.find_one(
+                {"action": "CLEAR", "state": "verified", "acknowledged_at": {"$gte": latest.get("acknowledged_at")}},
+                {"_id": 1},
+            )
+            open_incident = db["operational_incidents"].find_one(
+                {"kind": "soil_humidity_flatline", "farm_key": "greenhouse_a", "node_id": 2,
+                 "status": {"$in": ["open", "holding", "recovering"]}},
+                {"_id": 1}, sort=[("opened_at", DESCENDING)],
+            )
+            if not cleared_after and open_incident:
+                hold = dict(latest)
+                hold["incident_id"] = str(open_incident["_id"])
+    if not hold:
         client.close()
         raise RuntimeError("Refusing to clear HOLD: MongoDB has no acknowledged Datadog HOLD for the current monitor incident")
     incident_id = str(hold.get("incident_id") or "")
@@ -94,18 +115,61 @@ def main() -> int:
         {"command_id": 1, "verification": 1},
     )
     if previous_clear:
+        previous_verification = previous_clear.get("verification") or {}
+        try:
+            previous_range = [float(v) for v in previous_verification["soil_humidity_range_pct"]]
+            previous_count = int(previous_verification["sample_count"])
+            previous_freshness = float(previous_verification["sample_freshness_seconds"])
+            previous_required = int(previous_verification.get("required_samples", 10))
+            previous_span = float(previous_verification.get("sample_span_seconds", 0))
+        except (TypeError, ValueError, KeyError):
+            client.close()
+            raise RuntimeError("Refusing to report an already-cleared incident: prior CLEAR lacks complete telemetry proof")
+        prior_ack = previous_verification.get("clear_ack") or {}
+        prior_outputs = prior_ack.get("virtual_output") or {}
+        if (previous_verification.get("incident_id") != incident_id
+                or str(previous_verification.get("monitor_state", "")).upper() != "OK"
+                or previous_verification.get("virtual_pump_outputs_off") is not True
+                or previous_count < previous_required or previous_required < 2
+                or previous_span < 300 or not (0 <= previous_freshness <= 90)
+                or len(previous_range) != 2 or not (0 <= previous_range[0] <= previous_range[1] <= 100)
+                or previous_range[1] - previous_range[0] < 0.5
+                or not previous_verification.get("newest_sample_at")
+                or not previous_clear.get("command_id")
+                or prior_ack.get("command_id") != previous_clear.get("command_id")
+                or prior_ack.get("action") != "CLEAR" or prior_ack.get("applied") is not True
+                or prior_ack.get("verified") is not True or prior_ack.get("safe_mode_active") is not False
+                or prior_ack.get("synthetic") is not True
+                or set(prior_outputs) != {f"bit{i}" for i in range(8)}
+                or any(value not in (0, False, "0") for value in prior_outputs.values())
+                or not prior_ack.get("timestamp")):
+            client.close()
+            raise RuntimeError("Refusing to report an already-cleared incident: prior CLEAR proof is incomplete or mismatched")
         client.close()
         print(json.dumps({
             "result": "already_verified_and_cleared",
             "command_id": previous_clear.get("command_id"),
             "incident_id": incident_id,
             "monitor_state": monitor_state,
+            "fresh_normal_samples": previous_count,
+            "sample_span_seconds": previous_span,
+            "soil_humidity_range_pct": previous_range,
+            "newest_sample_at": previous_verification.get("newest_sample_at"),
+            "sample_freshness_seconds": round(previous_freshness, 1),
+            "clear_ack": prior_ack,
             "virtual_pump_outputs_off": True,
             "simulated": True,
         }, ensure_ascii=False))
         return 0
 
-    sample_start = max(now - timedelta(minutes=5), hold_ack_at or monitor_triggered_at)
+    # Require five minutes of stable recovery, but derive sample count from the
+    # simulator's configured cadence. With the default 60s cadence, 10 samples
+    # cannot fit in the old six-minute query window (they span at least 9 min).
+    expected_interval = max(1, int(os.getenv("SMIOT_SIM_NODE_INTERVAL_SECONDS", "60")))
+    stable_seconds = max(60, int(os.getenv("SMIOT_FLATLINE_STABLE_SECONDS", "300")))
+    required_samples = (stable_seconds + expected_interval - 1) // expected_interval + 1
+    query_window_seconds = stable_seconds + expected_interval + 60
+    sample_start = max(now - timedelta(seconds=query_window_seconds), hold_ack_at or monitor_triggered_at)
     recent = list(telemetry.find(
         {
             "meta.farm_key": "greenhouse_a",
@@ -113,25 +177,57 @@ def main() -> int:
             "meta.node_id": 2,
             "source.source": "smiot_demo_stream",
             "source.demo_seed_version": {"$exists": False},
-            "source.incident_id": incident_id,
+            # Mau cua su co do watchdog mo thuong khong gan incident_id; chap nhan them
+            # mau khong nhan trong cua so da nam sau luc HOLD duoc ack (sample_start).
+            "$or": [{"source.incident_id": incident_id}, {"source.incident_id": {"$exists": False}}, {"source.incident_id": None}],
             "timestamp": {"$gte": sample_start, "$lte": now},
             "readings.soil_hum": {"$type": "number", "$ne": 2.4},
         },
-        {"timestamp": 1, "readings.soil_hum": 1, "source.message_id": 1, "source.sequence": 1},
+        {"timestamp": 1, "readings.soil_hum": 1, "source.message_id": 1,
+         "source.sequence": 1, "source.boot_id": 1},
     ).sort("timestamp", DESCENDING).limit(20))
-    if len(recent) < 6:
-        client.close()
-        raise RuntimeError(f"Refusing to clear HOLD: only {len(recent)} fresh normal Node 2 samples tied to incident {incident_id}; need at least 6")
-    values = [float(row["readings"]["soil_hum"]) for row in recent]
-    newest = max(row["timestamp"] for row in recent)
-    if newest.tzinfo is None:
-        newest = newest.replace(tzinfo=timezone.utc)
-    freshness_seconds = (now - newest).total_seconds()
-    if freshness_seconds > 90 or max(values) - min(values) < 0.5:
+    # Keep only distinct, sequenced samples from the latest publisher boot.
+    # A reboot resets the per-device sequence, so samples from two boots must
+    # not be combined to claim a continuous recovery period.
+    newest_boot = next((row.get("source", {}).get("boot_id") for row in recent
+                        if row.get("source", {}).get("boot_id")), None)
+    stable = [row for row in recent
+              if row.get("source", {}).get("boot_id") == newest_boot
+              and isinstance(row.get("source", {}).get("sequence"), int)
+              and row.get("source", {}).get("message_id")]
+    stable = list({row["source"]["message_id"]: row for row in stable}.values())
+    stable.sort(key=lambda row: row["timestamp"])
+    sequences = [int(row["source"]["sequence"]) for row in stable]
+    if len(stable) < required_samples:
         client.close()
         raise RuntimeError(
-            f"Refusing to clear HOLD: sample freshness={freshness_seconds:.1f}s, "
-            f"soil humidity range={max(values)-min(values):.2f}; expected fresh, varying readings"
+            f"Refusing to clear HOLD: only {len(stable)} unique sequenced normal Node 2 samples "
+            f"for boot {newest_boot or 'unknown'} tied to incident {incident_id}; "
+            f"need {required_samples} at {expected_interval}s cadence for {stable_seconds}s stability"
+        )
+    if any(b <= a for a, b in zip(sequences, sequences[1:])):
+        client.close()
+        raise RuntimeError("Refusing to clear HOLD: Node 2 sample sequence is not strictly increasing")
+    # Use the latest contiguous recovery window, not old samples from earlier
+    # in the query range, to evaluate stability and freshness.
+    stable = stable[-required_samples:]
+    values = [float(row["readings"]["soil_hum"]) for row in stable]
+    newest = stable[-1]["timestamp"]
+    oldest = stable[0]["timestamp"]
+    for label, stamp in (("newest", newest), ("oldest", oldest)):
+        if stamp.tzinfo is None:
+            if label == "newest":
+                newest = stamp.replace(tzinfo=timezone.utc)
+            else:
+                oldest = stamp.replace(tzinfo=timezone.utc)
+    span_seconds = (newest - oldest).total_seconds()
+    freshness_seconds = (now - newest).total_seconds()
+    if span_seconds < stable_seconds or freshness_seconds > max(90, expected_interval * 1.5) or max(values) - min(values) < 0.5:
+        client.close()
+        raise RuntimeError(
+            f"Refusing to clear HOLD: stable span={span_seconds:.1f}s, "
+            f"freshness={freshness_seconds:.1f}s, humidity range={max(values)-min(values):.2f}; "
+            f"expected at least {stable_seconds}s of fresh, varying readings"
         )
 
     broker_host = os.getenv("MQTT_HOST", "127.0.0.1")
@@ -140,7 +236,7 @@ def main() -> int:
     command = {
         "command_id": command_id,
         "action": "CLEAR",
-        "reason": "Datadog monitor OK and six or more fresh, varying Node 2 MongoDB samples verified",
+        "reason": f"Datadog monitor OK and {required_samples} unique sequenced Node 2 MongoDB samples verified over {stable_seconds}s",
         "source": "datadog_safe_mode_recovery_verifier",
         "workflow_id": hold.get("workflow_id"),
         "execution_id": hold.get("execution_id"),
@@ -192,19 +288,48 @@ def main() -> int:
         mqtt_client.publish("farm/command/event", json.dumps({**command, "ledger_state": "published"}, separators=(",", ":")), qos=1).wait_for_publish(5)
         if not acknowledged.wait(8):
             raise RuntimeError("The virtual PLC did not acknowledge CLEAR")
-        outputs = ack_data.get("virtual_output", {})
-        if ack_data.get("safe_mode_active") is not False or any(int(value) != 0 for value in outputs.values()):
-            raise RuntimeError("PLC ACK did not confirm safe mode cleared with all simulated pump outputs OFF")
+        outputs = ack_data.get("virtual_output")
+        expected_outputs = {f"bit{i}" for i in range(8)}
+        if (not isinstance(outputs, dict) or set(outputs) != expected_outputs
+                or any(value not in (0, False, "0") for value in outputs.values())
+                or ack_data.get("safe_mode_active") is not False
+                or ack_data.get("applied") is not True
+                or ack_data.get("verified") is not True
+                or ack_data.get("action") != "CLEAR"
+                or str(ack_data.get("incident_id") or "") != incident_id
+                or ack_data.get("farm_key") != "greenhouse_a"
+                or ack_data.get("target") != "smiot_virtual_plc"
+                or ack_data.get("synthetic") is not True):
+            raise RuntimeError("PLC ACK did not prove the matching CLEAR, readback, and all eight outputs OFF")
+        try:
+            ack_at = datetime.fromisoformat(str(ack_data.get("timestamp", "")).replace("Z", "+00:00"))
+            if ack_at.tzinfo is None:
+                ack_at = ack_at.replace(tzinfo=timezone.utc)
+        except ValueError as exc:
+            raise RuntimeError("PLC CLEAR ACK timestamp is missing or invalid") from exc
+        if abs((datetime.now(timezone.utc) - ack_at).total_seconds()) > 30:
+            raise RuntimeError("PLC CLEAR ACK timestamp is outside the current verification window")
 
         verification = {
             "incident_id": incident_id,
             "monitor_state": monitor_state,
-            "sample_count": len(recent),
+            "sample_count": len(stable),
             "soil_humidity_range_pct": [min(values), max(values)],
             "newest_sample_at": newest.isoformat(),
-            "sample_message_ids": [row.get("source", {}).get("message_id") for row in recent if row.get("source", {}).get("message_id")],
+            "sample_message_ids": [row.get("source", {}).get("message_id") for row in stable if row.get("source", {}).get("message_id")],
             "sample_freshness_seconds": round(freshness_seconds, 1),
+            "expected_interval_seconds": expected_interval,
             "virtual_pump_outputs_off": True,
+            "clear_ack": {
+                "command_id": ack_data.get("command_id"),
+                "action": ack_data.get("action"),
+                "applied": ack_data.get("applied"),
+                "verified": ack_data.get("verified"),
+                "safe_mode_active": ack_data.get("safe_mode_active"),
+                "virtual_output": outputs,
+                "timestamp": ack_at.isoformat(),
+                "synthetic": ack_data.get("synthetic"),
+            },
         }
         mqtt_client.publish("farm/command/event", json.dumps({
             **command,
@@ -216,10 +341,19 @@ def main() -> int:
             "command_id": command_id,
             "prior_hold_command_id": hold.get("command_id"),
             "monitor_state": monitor_state,
-            "fresh_normal_samples": len(recent),
+            "fresh_normal_samples": len(stable),
+            "sample_span_seconds": round(span_seconds, 1),
+            "required_samples": required_samples,
+            "stable_seconds": stable_seconds,
+            "expected_interval_seconds": expected_interval,
             "soil_humidity_range_pct": [round(min(values), 2), round(max(values), 2)],
+            "newest_sample_at": newest.isoformat(),
+            "sample_freshness_seconds": round(freshness_seconds, 1),
+            "clear_ack": verification["clear_ack"],
             "incident_id": incident_id,
             "virtual_pump_outputs": outputs,
+            "virtual_pump_outputs_off": all(int(value) == 0 for value in outputs.values()),
+            "monitor_state": monitor_state,
             "simulated": True,
         }, ensure_ascii=False))
         return 0

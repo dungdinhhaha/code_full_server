@@ -1,0 +1,37 @@
+{
+  "workflow": "SMIOT | Guarded EC2 app recovery",
+  "workflow_id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+  "run_id": "c8c9bda9-f463-4338-9aa7-85df60f7cdaa",
+  "trigger": "manual API trigger during controlled app-service outage; monitor-triggered detection not established",
+  "started_at_utc": "2026-11-10T10:24:29.602278Z",
+  "finished_at_utc": "2026-11-10T10:24:41.108427Z",
+  "workflow_status": "SUCCEEDED",
+  "ssm_action": {
+    "document": "SMIOT-GuardedStartApp",
+    "status_at_initial_response": "Pending",
+    "result": "guarded start requested"
+  },
+  "verification": {
+    "http_status": 200,
+    "verified": true,
+    "status": "recovered",
+    "meaning": "app verifier confirmed guarded recovery"
+  },
+  "app_notification": {
+    "http_status": 202,
+    "stored": true,
+    "app_bell_updated": true
+  },
+  "post_run_health": {
+    "smiot_service": "active",
+    "mongodb": "active",
+    "mqtt": "active",
+    "healthz_http": 200
+  },
+  "safety": {
+    "host_restart": false,
+    "database_restart": false,
+    "actuator_command": false,
+    "verified_recovery_claim": true
+  }
+}

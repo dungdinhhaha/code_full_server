@@ -1,0 +1,168 @@
+{
+  "description": "Read-only check of detector evaluation freshness. Missing metric is treated as unknown and escalated; this app-owned metric does not prove the process is independently alive and the workflow does not restart processes.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm",
+    "plan:workflow-06",
+    "safety:read-only"
+  ],
+  "name": "SMIOT | W6 | Detector heartbeat review",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evidence",
+            "branchName": "main"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "heartbeat",
+                "query": "max:smiot.detector.evaluation_heartbeat{detector:agronomic_advisory}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "heartbeat"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 264,
+            "x": 0
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"heartbeat\")?.values?.[0]); return Number.isFinite(v) && v>0; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W6 | EVALUATION_HEARTBEAT_SEEN | The SMIOT app reported an evaluation in the query window. Confirm the matching farm's latest persisted finding and detector logs; this signal does not independently prove detector-process liveness. No process action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W6 | EVALUATION_HEARTBEAT_MISSING_OR_UNKNOWN | No evaluation-heartbeat value was returned. Confirm metric ingestion, farm scope and app health, then escalate. Do not restart from missing evidence.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W6 | Detector heartbeat review | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      }
+    ],
+    "handle": "smiot-w06-detector-heartbeat",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

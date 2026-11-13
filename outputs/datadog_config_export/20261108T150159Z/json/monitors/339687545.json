@@ -1,0 +1,55 @@
+{
+  "additionalProperties": {
+    "created_at": 1793607482000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-02T22:02:05+00:00"
+  },
+  "created": "2026-11-02T08:18:02.335Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245831
+    },
+    "email": "support-user-prod@datadoghq.com",
+    "handle": "support-no-kp_8tnkfs1rc",
+    "name": "Datadog Support"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339687545,
+  "matchingDowntimes": [],
+  "message": "## 🚨 What's happening\n\nHigh outgoing network traffic detected on host {{host.name}}.\n\nThis means the host is sending a sustained high volume of data — with the 15-minute average of `system.net.bytes_sent` exceeding **80 MB/min**. This typically points to large data exports, logging spikes, backup activity, or misconfigured services.\n\n***\n\n## 📈 Impact\n\nIf network traffic remains elevated, it can lead to:\n\n-   **Bandwidth saturation**, resulting in packet loss or throttling\n-   **Degraded performance** for outbound services like APIs, exporters, or clients\n-   **Delays in data processing**, backups, or inter-service communication\n-   **Resource contention** on shared hosts or virtualized environments\n\nThis may prevent the host from reliably transmitting time-sensitive or critical data, potentially impacting service-level objectives.\n\n***\n\n## Runbook\n\n### Initial Troubleshooting Steps\n\n1.  **Identify the affected host** from the alert.\n\n2.  Open [**Infrastructure > Host Details**](/infrastructure) in Datadog.\n\n3.  In the **Metrics** tab, examine:\n\n    -   `system.net.bytes_sent`, `system.net.bytes_rcvd`\n    -   Interface metrics (`system.net.iface.*`)\n\n4.  Check application logs or exporters for spikes in outbound traffic.\n\n5.  Use tools like `iftop`, `nload`, or `netstat` to inspect top outbound connections.\n\n6.  (If needed) SSH into the host and run:\n\n    ```\n    bash\n    CopyEdit\n    sudo iftop -i <interface>\n    ```\n\n### Cause and Resolution\n\n| Cause                                            | Resolution                                      |\n| ------------------------------------------------ | ----------------------------------------------- |\n| Large data exports (e.g., backups, log shipping) | Schedule exports off-peak or throttle bandwidth |\n| Misconfigured services flooding traffic          | Review configs and reduce payloads or frequency |\n| Traffic spike from application behavior          | Add caching or batching; review architecture    |\n| Third-party abuse or unintended syncs            | Audit external endpoints and restrict access    |\n\n***\n\n### Related links\n\n-   [Host Map](/infrastructure/map)\n-   [Live Processes](/process)\n-   [System Dashboards](/dashboard/lists)\n-   [Monitor Documentation](https://docs.datadoghq.com/monitors/)\n-   [Logs](/logs?query=host:{{host.name}})\n-   [Infrastructure](/infrastructure/hosts?scope=host:{{host.name}})\n-   [Metrics Explorer (system.net.bytes_sent)](/metric/explorer?exp_metric=system.net.bytes_sent&exp_scope=host:{{host.name}}&exp_agg=avg&exp_type=line)\n\n***\n\n### Who should be notified?\n\nPlease assign the appropriate notification handle for this alert (e.g., `@slack-networking`, `@pagerduty-platform-oncall`):\\\n`@your-team-handle`",
+  "modified": "2026-11-02T08:18:02.335Z",
+  "multi": true,
+  "name": "Network traffic (sent) is high on host {{host.name}}",
+  "options": {
+    "includeTags": false,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "notifyNoData": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 0.08
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "avg(last_15m):avg:system.net.bytes_sent{*} by {host} / (1024 * 1024 * 1024) > 0.08",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "host:i-00bf2d3591d3ee0a2": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "host:i-00bf2d3591d3ee0a2",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "integration:host",
+    "monitor_pack:host"
+  ],
+  "type": "query alert"
+}

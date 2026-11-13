@@ -13,7 +13,7 @@ from service import auth
 
 logger = get_logger("SCHEDULER")
 
-FARMS = ['greenhouse_a', 'greenhouse_b', 'greenhouse_c', 'greenhouse_d']
+from service.farm_registry import FARM_KEYS as FARMS
 
 def scheduler_start_tick():
     """Quét và kích hoạt lịch trình mới (bật bơm) cho tất cả các farm - Chạy mỗi 60s."""
@@ -58,8 +58,11 @@ def scheduler_start_tick():
                 try:
                     payload = {
                         "device_name": "Inverter",
-                        "bit": 1
+                        "bit": 1,
+                        "farm_key": farm_key,
                     }
+                    from service.mqtt import prepare_actuator_command
+                    payload = prepare_actuator_command("farm/inverter", payload, timeout_seconds=120)
                     publish_mqtt("farm/inverter", payload)
 
                     # Lưu lượng nước tích lũy lúc bắt đầu vào bộ nhớ tạm
@@ -83,7 +86,10 @@ def scheduler_start_tick():
                     state["inv_pending_cmd"] = {
                         "time": time.time(),
                         "target_bit": 1,
-                        "schedule_id": sch["id"]
+                        "schedule_id": sch["id"],
+                        "farm_key": farm_key,
+                        "command_id": payload.get("command_id"),
+                        "ack_deadline": time.time() + 120,
                     }
                     
                     state["inv_status"] = 1
@@ -121,21 +127,29 @@ def scheduler_stop_tick():
                 if now >= end_dt:
                     # Nếu đã gửi lệnh tắt và đang chờ phản hồi từ Gateway thì không gửi lại
                     inv_pending = state.get("inv_pending_cmd")
-                    if inv_pending and inv_pending.get("target_bit") == 0 and inv_pending.get("schedule_id") == sch_id:
+                    if (inv_pending and inv_pending.get("target_bit") == 0
+                            and inv_pending.get("schedule_id") == sch_id
+                            and inv_pending.get("farm_key") == farm_key):
                         continue
                         
                     logger.info(f"[AUTO] [{farm_key}] Lịch #{sch_id} đã chạy đủ {run_minutes} phút. Gửi lệnh tắt (bit=0)...")
                     
                     payload = {
                         "device_name": "Inverter",
-                        "bit": 0
+                        "bit": 0,
+                        "farm_key": farm_key,
                     }
+                    from service.mqtt import prepare_actuator_command
+                    payload = prepare_actuator_command("farm/inverter", payload, timeout_seconds=120)
                     publish_mqtt("farm/inverter", payload)
                     
                     state["inv_pending_cmd"] = {
                         "time": time.time(),
                         "target_bit": 0,
-                        "schedule_id": sch_id
+                        "schedule_id": sch_id,
+                        "farm_key": farm_key,
+                        "command_id": payload.get("command_id"),
+                        "ack_deadline": time.time() + 120,
                     }
                     
                     state["inv_status"] = 0

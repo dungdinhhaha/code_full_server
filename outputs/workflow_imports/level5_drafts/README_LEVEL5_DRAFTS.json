@@ -1,0 +1,27 @@
+{
+  "format": "smiot.level5.workflow.draft.index.v2",
+  "datadog_live_changed": true,
+  "status_note": "All ten existing workflows were updated in the Datadog US1 org and GET-verified. No duplicates were created; IDs, handles, published state, triggers, and existing graph nodes were preserved. W1 now has both monitor and API triggers. W3 remains unverified after SSM SendCommand; do not claim recovery.",
+  "notification": "The HTTP Action Connection is bound in all ten live workflow specs and the action body uses the validated `body` input with top-level Datadog context variables. W1 notification succeeded in two safe API-trigger runs; its action step returned success. This confirms the app endpoint accepted and persisted the notice, but no Mongo readback of the exact notice was performed.",
+  "validation": "All ten payloads parse. Graph validation found zero dangling edges, missing trigger starts, or missing error fallbacks. Every terminal branch links to the single notify_smiot_app action.",
+  "live_observations": [
+    "All ten workflow IDs/handles were read from the correct Datadog US site; all are published.",
+    "W6 has no monitor trigger and is manual only.",
+    "W1,W2,W4-W10 draft metric names are present in backend source; metric ingestion/No Data state still needs runtime confirmation.",
+    "W4 monitor 342585836 was updated to mention the current handle smiot-ca1-refuse-restart-1; GET confirmed the query, options, and other monitor properties remained unchanged.",
+    "Each of the ten workflows GET-verifies one HTTP app-notification node, the expected connection binding, and published=true. W3 only confirms SSM command submission; command completion plus post-action HTTP/Mongo evidence is not verified."
+  ],
+  "files": [
+    "patch_payloads_pending_review/w1_smiot-w01-plc-safety-trip.json",
+    "patch_payloads_pending_review/w2_smiot-ca2-confirm-local-interlock.json",
+    "patch_payloads_pending_review/w3_smiot-guarded-ec2-recovery.json",
+    "patch_payloads_pending_review/w4_smiot-ca1-refuse-restart-1.json",
+    "patch_payloads_pending_review/w5_smiot-w05-root-cause-triage.json",
+    "patch_payloads_pending_review/w6_smiot-w06-detector-heartbeat.json",
+    "patch_payloads_pending_review/w7_smiot-w07-irrigation-schedule-review.json",
+    "patch_payloads_pending_review/w8_smiot-w08-crop-risk-review.json",
+    "patch_payloads_pending_review/w9_smiot-w09-actuator-ack-verify.json",
+    "patch_payloads_pending_review/w10_smiot-w10-ai-failure-safety.json"
+  ],
+  "write_gate": "No further broad publish is pending. W3 recovery remains pending until a supported SSM completion/poll path and post-action health/fresh-Mongo evidence are configured and proven."
+}

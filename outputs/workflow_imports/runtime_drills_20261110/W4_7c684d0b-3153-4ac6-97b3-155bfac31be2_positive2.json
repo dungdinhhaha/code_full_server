@@ -1,0 +1,473 @@
+{
+  "data": {
+    "attributes": {
+      "endTimestamp": "2026-11-10T10:29:14.531215Z",
+      "instanceStatus": {
+        "detailsKind": "SUCCEEDED",
+        "displayName": "Success"
+      },
+      "outputs": {},
+      "source": {
+        "api": {
+          "actingUser": {
+            "userEmail": "dungyeuduyen08032004@gmail.com",
+            "userName": "dung tien",
+            "userUuid": "92c5d45e-0b70-4b11-92d4-6cec4993965b"
+          },
+          "body": "ew0KICAibWV0YSI6IHsNCiAgICAicGF5bG9hZCI6IHsNCiAgICAgICJ0aHJlc2hvbGRfc2Vjb25kcyI6IDkwLA0KICAgICAgImluY2lkZW50X2lkIjogInN5bnRoZXRpYy13NC0yMDI2MTExMCIsDQogICAgICAiZmFybV9rZXkiOiAiZ3JlZW5ob3VzZV9hIiwNCiAgICAgICJub2RlX2lkIjogIm5vZGVfMSINCiAgICB9DQogIH0NCn0=",
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "188",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          }
+        }
+      },
+      "sourceForTemplating": {
+        "api": {
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "188",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          },
+          "requestBody": "{\r\n  \"meta\": {\r\n    \"payload\": {\r\n      \"threshold_seconds\": 90,\r\n      \"incident_id\": \"synthetic-w4-20261110\",\r\n      \"farm_key\": \"greenhouse_a\",\r\n      \"node_id\": \"node_1\"\r\n    }\r\n  }\r\n}"
+        },
+        "initiator": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "name": "SMIOT | Ca 1 | Refuse restart when samples are fresh",
+        "runAsUser": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "runAsUserMode": "owner",
+        "type": "workflows_api",
+        "url": "https://app.datadoghq.com/workflow/ffd62026-6b63-40e4-9b46-6ac18d2d584f?instance=7c684d0b-3153-4ac6-97b3-155bfac31be2"
+      },
+      "startTimestamp": "2026-11-10T10:29:10.821971Z",
+      "stepStateAssociations": [
+        {
+          "finishedAt": "2026-11-10T10:29:11.756965Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T10:29:11.338676Z",
+          "stepName": "query_freshness_both_sources",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T10:29:12.444738Z",
+          "outboundBranch": "true",
+          "startedAt": "2026-11-10T10:29:12.257043Z",
+          "stepName": "verify_evidence_available",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T10:29:13.145614Z",
+          "outboundBranch": "true",
+          "startedAt": "2026-11-10T10:29:12.974746Z",
+          "stepName": "classify_freshness",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T10:29:13.423148Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T10:29:13.153558Z",
+          "stepName": "refuse_restart_fresh_samples",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T10:29:14.515479Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T10:29:13.433408Z",
+          "stepName": "notify_smiot_app",
+          "stepState": "SUCCEEDED"
+        }
+      ],
+      "systemTags": [
+        "service:smiot-smart-farm"
+      ],
+      "trigger": {
+        "farm_key": "greenhouse_a",
+        "incident_id": "synthetic-w4-20261110",
+        "node_id": "node_1",
+        "threshold_seconds": 90
+      },
+      "userTags": [
+        "case:ca1",
+        "env:demo",
+        "project:smiot",
+        "safety:no-restart"
+      ]
+    },
+    "id": "7c684d0b-3153-4ac6-97b3-155bfac31be2",
+    "relationships": {
+      "specVersion": {
+        "data": {
+          "id": "d7932a7c-9f71-45e5-8715-7ae9acc61d28",
+          "type": "spec_versions"
+        }
+      },
+      "workflow": {
+        "data": {
+          "id": "ffd62026-6b63-40e4-9b46-6ac18d2d584f",
+          "type": "workflows"
+        }
+      }
+    },
+    "type": "instances"
+  },
+  "included": [
+    {
+      "attributes": {
+        "createdAt": "2026-11-10T09:55:49.606733Z",
+        "spec": {
+          "connectionEnvs": [
+            {
+              "connections": [
+                {
+                  "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                  "label": "SMIOT_APP_HTTP"
+                }
+              ],
+              "env": "default"
+            }
+          ],
+          "handle": "smiot-ca1-refuse-restart-1",
+          "inputSchema": {
+            "parameters": [
+              {
+                "defaultValue": 90,
+                "name": "threshold_seconds",
+                "type": "NUMBER"
+              },
+              {
+                "defaultValue": "greenhouse_a",
+                "name": "farm_key",
+                "type": "STRING"
+              },
+              {
+                "defaultValue": "greenhouse_a",
+                "name": "node_id",
+                "type": "STRING"
+              },
+              {
+                "defaultValue": "greenhouse_a",
+                "name": "incident_id",
+                "type": "STRING"
+              }
+            ]
+          },
+          "steps": [
+            {
+              "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+              "display": {
+                "bounds": {
+                  "y": 96
+                }
+              },
+              "errorHandlers": [
+                {
+                  "fallbackStepName": "escalate_query_failed",
+                  "retryStrategy": {
+                    "kind": "RETRY_STRATEGY_LINEAR",
+                    "linear": {
+                      "interval": "1s",
+                      "maxRetries": 1
+                    }
+                  }
+                }
+              ],
+              "name": "query_freshness_both_sources",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "verify_evidence_available"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "range",
+                  "value": "3m"
+                },
+                {
+                  "name": "queries",
+                  "value": [
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "status_mismatch",
+                      "query": "max:smiot.telemetry.status_mismatch{farm:greenhouse_a,node:1}"
+                    },
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "mongo_sample_age_s",
+                      "query": "max:smiot.telemetry.sample_age_seconds{farm:greenhouse_a,node:1}"
+                    }
+                  ]
+                },
+                {
+                  "name": "formulas",
+                  "value": [
+                    {
+                      "formula": "status_mismatch"
+                    },
+                    {
+                      "formula": "mongo_sample_age_s"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "y": 216
+                }
+              },
+              "name": "verify_evidence_available",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "classify_freshness"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "escalate_missing_evidence"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const c=Steps.query_freshness_both_sources.data?.attributes?.columns || []; const names=[\"status_mismatch\", \"mongo_sample_age_s\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "y": 384
+                }
+              },
+              "name": "classify_freshness",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "refuse_restart_fresh_samples"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "escalate_not_confirmed_fresh"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const cols = Steps.query_freshness_both_sources.data?.attributes?.columns || []; const mismatch = Number(cols.find(c => c.name === \"status_mismatch\")?.values?.[0]); const age = Number(cols.find(c => c.name === \"mongo_sample_age_s\")?.values?.[0]); const threshold = Number(Trigger.threshold_seconds); return mismatch > 0 && Number.isFinite(age) && Number.isFinite(threshold) && threshold > 0 && age >= 0 && age < threshold; })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "y": 552
+                }
+              },
+              "name": "refuse_restart_fresh_samples",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "CA1 | REFUSED_RESTART | current node 1 status_mismatch=1 and MongoDB sample age is below the 90-second stale threshold | monitor 342585836 is the trigger | no app/device action; investigate UI state/cache and preserve incoming samples | RECORD=workflow run and linked monitor event | VERIFY=check app action ledger and fresh telemetry before marking recovered; Echo is not recovery proof"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 552
+                }
+              },
+              "name": "escalate_not_confirmed_fresh",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "CA1 | ESCALATE_HUMAN | node 1 mismatch is no longer current, MongoDB freshness is missing/stale, or freshness could not be proven | fail closed; inspect the monitor group and app logs; no restart/action | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 552
+                }
+              },
+              "name": "escalate_query_failed",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "ESCALATE_HUMAN | CA1 | freshness metric query failed | action=none | never restart on missing evidence | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 552
+                }
+              },
+              "name": "escalate_missing_evidence",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W4 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.http.request",
+              "connectionLabel": "SMIOT_APP_HTTP",
+              "name": "notify_smiot_app",
+              "parameters": [
+                {
+                  "name": "verb",
+                  "value": "POST"
+                },
+                {
+                  "name": "url",
+                  "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+                },
+                {
+                  "name": "requestHeaders",
+                  "value": [
+                    {
+                      "key": "Content-Type",
+                      "value": [
+                        "application/json"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "body",
+                  "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"Fresh telemetry was confirmed from the evidence sources. Restart was refused safely; keep the incident open until the operator reviews the linked evidence.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+                }
+              ],
+              "readinessGate": {
+                "thresholdType": "ANY"
+              }
+            }
+          ],
+          "triggers": [
+            {
+              "monitorTrigger": {
+                "rateLimit": {
+                  "count": 1,
+                  "interval": "300s"
+                }
+              },
+              "startStepNames": [
+                "query_freshness_both_sources"
+              ]
+            },
+            {
+              "apiTrigger": {},
+              "startStepNames": [
+                "query_freshness_both_sources"
+              ]
+            }
+          ]
+        },
+        "workflowId": "ffd62026-6b63-40e4-9b46-6ac18d2d584f"
+      },
+      "id": "d7932a7c-9f71-45e5-8715-7ae9acc61d28",
+      "type": "spec_versions"
+    },
+    {
+      "attributes": {
+        "autoDescription": "This workflow checks sample freshness and prevents restarts if samples are current, escalating when evidence is missing or freshness is unconfirmed.",
+        "createdAt": "2026-11-09T17:31:06.191325Z",
+        "creationSource": "workflows_ui",
+        "description": "Read-only guard for the Ca 1 status-mismatch monitor. Confirms the mismatch is still present and checks farm-wide data freshness. It never restarts the app or any device.",
+        "name": "SMIOT | Ca 1 | Refuse restart when samples are fresh",
+        "specVersionId": "d7932a7c-9f71-45e5-8715-7ae9acc61d28",
+        "systemTags": [
+          "service:smiot-smart-farm"
+        ],
+        "updatedAt": "2026-11-10T09:55:50.671086Z",
+        "userTags": [
+          "case:ca1",
+          "env:demo",
+          "project:smiot",
+          "safety:no-restart"
+        ]
+      },
+      "id": "ffd62026-6b63-40e4-9b46-6ac18d2d584f",
+      "type": "workflows"
+    }
+  ],
+  "meta": {
+    "outputsTooBig": false,
+    "sourceTooBig": false,
+    "triggerTooBig": false
+  }
+}

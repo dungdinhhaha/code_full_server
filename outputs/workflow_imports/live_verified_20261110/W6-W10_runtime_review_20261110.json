@@ -1,0 +1,56 @@
+{
+  "scope": "W6-W10",
+  "verified_at_utc": "2026-11-10T09:40:00Z",
+  "account": "Datadog US1 project account (credentials withheld)",
+  "changes": [
+    "W6 query aligned to smiot.detector.watchdog_heartbeat with detector:agronomic_advisory.",
+    "W9 reads safe_mode_active as independent actuator context; missing ACK remains unknown and never triggers a retry.",
+    "W10 evidence gate accepts either provider_failure or ask_latency_ms, so a latency-only alert can reach its latency branch.",
+    "W6-W10 retain both monitor and API triggers."
+  ],
+  "runs": {
+    "W6": {
+      "run_id": "0882c78d-a3e7-42f2-ab83-04616ed01a26",
+      "status": "SUCCEEDED",
+      "branch": "HEARTBEAT_SEEN",
+      "action": "read-only verification; no process action"
+    },
+    "W9": {
+      "run_id": "0a7b2aed-d5ab-4d55-94af-29f3460746a2",
+      "status": "SUCCEEDED",
+      "branch": "NO_UNACK_SIGNAL",
+      "action": "operator review; no retry or actuator action"
+    },
+    "W10": {
+      "run_id": "ddb72402-aff6-4b4e-b486-6aad866d8614",
+      "status": "SUCCEEDED",
+      "branch": "UNKNOWN_MISSING_EVIDENCE",
+      "action": "operator review; no AI decision or recovery claim"
+    },
+    "W7": {
+      "run_id": "5c2e84ce-6c76-4b6a-9521-1c3cb2f3caa1",
+      "status": "SUCCEEDED",
+      "branch": "FRESH_INPUTS_FOR_REVIEW",
+      "action": "recommendation only; irrigation unchanged"
+    },
+    "W8": {
+      "run_id": "e9118b6c-6d79-46d3-ae1e-787b4c8c9c63",
+      "status": "SUCCEEDED",
+      "branch": "CROP_INPUTS_AVAILABLE",
+      "action": "review only; no fan, drainage, spray, or nutrient command"
+    }
+  },
+  "safety": {
+    "fabricated_recovery": false,
+    "actuator_commands_sent": false,
+    "aws_iam_changed": false
+  },
+  "synthetic_exercise": {
+    "W10_metric": "smiot.ai.ask_latency_ms",
+    "tag": "scenario:w10_positive_branch",
+    "submitted": true,
+    "observed_by_workflow": false,
+    "reason": "The Datadog metric query still returned an empty value during the verification window; no positive branch was claimed."
+  },
+  "remaining_limit": "W10 requires a live provider-failure or latency metric visible in the workflow query window to demonstrate its positive safety branch; the manual run correctly stayed unknown when both signals were absent. W9 positive COMMAND_UNACKNOWLEDGED remains unexercised because no real unacknowledged command was generated."
+}

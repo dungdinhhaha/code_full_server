@@ -1,11 +1,10 @@
 from nicegui import ui, app
 from pages.login import check_login
 from service import auth
-from service.weather_api import WeatherAPIClient
 from typing import Set, Callable
 import asyncio
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Bộ lưu trữ các callback refresh cụ thể cho từng client đang kết nối
 client_refreshes = {}
@@ -424,7 +423,10 @@ html, body, #q-app {
 @media (max-width: 768px) {
     .main-content {
         margin-left: 0;
+        padding-left: 0;
         padding-bottom: 80px;
+        height: 100vh;
+        height: 100dvh;
     }
     .sidebar {
         width: 100%;
@@ -438,27 +440,42 @@ html, body, #q-app {
         flex-direction: row;
         box-shadow: 0 -4px 20px rgba(0,0,0,0.03);
         border-top: 1px solid rgba(241, 245, 249, 0.8);
-        justify-content: space-around;
+        justify-content: flex-start;
         align-items: center;
         padding: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
         background: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
     }
-    .sidebar-logo, .sidebar-section, .sidebar div:last-child {
+    .sidebar::-webkit-scrollbar { display: none; }
+    .sidebar-logo, .sidebar-section, .sidebar > div:last-child, .sidebar > div:empty {
         display: none !important;
     }
     .nav-item {
         margin: 0;
-        padding: 6px;
-        font-size: 10px;
+        padding: 6px 4px;
+        font-size: 11px;
+        flex: 0 0 auto;
+        min-width: 64px;
+        min-height: 48px;
         flex-direction: column;
         gap: 1px;
-        flex: 1;
         text-align: center;
         justify-content: center;
         border-radius: 6px;
+        white-space: nowrap;
     }
+    .nav-item > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+    }
+    .nav-item span { font-size: 11px; }
     .nav-item i {
         font-size: 18px !important;
         color: #94a3b8;
@@ -477,8 +494,82 @@ html, body, #q-app {
         grid-template-columns: 1fr;
         row-gap: 16px;
     }
+    .top-bar { flex-wrap: wrap !important; gap: 8px; padding: 8px 12px !important; }
+    .top-bar .q-field { width: 120px !important; margin-left: 0 !important; }
+    .top-bar-title { flex-wrap: wrap; min-width: 0; gap: 8px !important; }
+    .top-bar > div:last-child { gap: 8px !important; flex-wrap: wrap; justify-content: flex-end; }
+    .content-area { padding: 12px !important; }
+}
+
+/* Bảng rộng: cuộn ngang trong khung, không làm tràn trang */
+.tbl-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 480px) {
+    .q-menu { max-width: 94vw !important; }
+    .flow-lines { grid-template-columns: 1fr; }
+    .weather-hourly { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (hover: none) {
+    .card:hover, .weather-card:hover, .ai-card:hover { transform: none; }
+}
+
+/* Home control room: a fleet dashboard first, individual controls on demand. */
+.farm-control-room { width:100%; color:#263d32; }
+.farm-control-hero {
+    display:flex; align-items:center; justify-content:space-between; gap:18px;
+    min-height:116px; padding:22px 26px; color:#f4fbf5;
+    background:#173d31; border-radius:16px 16px 0 0;
+    border-left:5px solid #8ccf72;
+}
+.farm-control-title { font-size:25px; line-height:1.15; font-weight:800; color:#fff; }
+.farm-control-subtitle { max-width:620px; font-size:13px; line-height:1.5; color:#c7d9cd; }
+.farm-control-count { text-align:right; font-size:21px; line-height:1.1; font-weight:800; color:#d7f1c5; }
+.farm-control-updated { text-align:right; font-size:10px; color:#c0d1c6; }
+.farm-kpi-strip {
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr));
+    border:1px solid #e2e9e3; border-top:0; background:#fff;
+}
+.farm-kpi { min-width:0; padding:13px 16px; border-right:1px solid #e8ede9; }
+.farm-kpi:last-child { border-right:0; }
+.farm-kpi-label { color:#738178; font-size:10px; font-weight:700; }
+.farm-kpi-detail { color:#89948e; font-size:10px; }
+.farm-overview-grid {
+    display:grid; grid-template-columns:minmax(0,1.25fr) minmax(390px,1fr);
+    gap:14px; align-items:start; padding-top:14px;
+}
+.farm-overview-charts, .farm-overview-list { width:100%; min-width:0; gap:12px; }
+.farm-section-title { font-size:15px; font-weight:800; color:#263d32; }
+.farm-chart-note { color:#849188; font-size:10px; line-height:1.4; }
+.farm-overview-error { display:block; padding:18px; color:#9b3930; }
+.farm-active-incidents { display:flex; flex-direction:column; gap:5px; padding:12px 14px; background:#fff5f1; border-left:3px solid #c85b49; border-radius:8px; color:#8d342c; }
+.farm-detail-back { margin:0 0 4px 0; color:#397551; font-weight:700; }
+.farm-detail-heading { font-size:20px; font-weight:800; color:#203b2d; }
+@media (max-width: 1100px) {
+    .farm-overview-grid { grid-template-columns:minmax(0,1fr); }
+    .farm-overview-list { order:-1; }
+}
+@media (max-width: 760px) {
+    .farm-control-hero { min-height:0; padding:18px; align-items:flex-start; }
+    .farm-control-title { font-size:21px; }
+    .farm-control-subtitle { font-size:12px; }
+    .farm-control-count { font-size:18px; }
+    .farm-kpi-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .farm-kpi { padding:10px 12px; border-bottom:1px solid #e8ede9; }
+    .farm-kpi:nth-child(2n) { border-right:0; }
+    .farm-overview-grid { gap:10px; }
+}
+@media (max-width: 480px) {
+    .farm-control-hero { flex-direction:column; gap:10px; }
+    .farm-control-count, .farm-control-updated { text-align:left; }
+    .farm-kpi-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .farm-overview-grid > div { width:100%; }
 }
 """
+
+# Fonts first (an @import must lead the sheet), theme last so it replaces the legacy look.
+from components.theme import THEME_CSS, THEME_FONTS
+CUSTOM_CSS = THEME_FONTS + CUSTOM_CSS + THEME_CSS
 
 # ─────────────────────────────────────────────
 # ─────────────────────────────────────────────
@@ -488,7 +579,8 @@ import time
 
 state = {
     "system_last_seen": time.time(),
-    "node1_status": "ONLINE",
+    # UNKNOWN until a real sample is seen in MongoDB (never assume ONLINE).
+    "node1_status": "UNKNOWN",
     "node1_air_temp": 30.3,
     "node1_air_hum": 65.3,
     "node1_soil_temp": 26.0,
@@ -496,7 +588,7 @@ state = {
     "node1_ec": 1.4,
     "node1_updated": "11:23:15",
 
-    "node2_status": "ONLINE",
+    "node2_status": "UNKNOWN",
     "node2_air_temp": 37.5,
     "node2_air_hum": 65.1,
     "node2_soil_temp": 35.7,
@@ -535,9 +627,11 @@ state = {
     "weather_solar": 6401,
     "weather_eto": 5.74,
 
-    "ai_water_suggest": 0,
+    "ai_water_suggest": None,  # None = chưa có dữ liệu/AI lỗi (khác 0 ml hợp lệ)
+    "ai_status": "no_data",  # ok | no_water | no_data | provider_error
+    "ai_reason": "",
     "van_status": 0,  # 0: Không tưới, 1: Tưới
-    "ai_time": "11:23:15",
+    "ai_time": "",  # rỗng = chưa nhận dự đoán nào từ AI (không dùng giờ giả)
 
     # Inverter State
     "inv_online": 0,
@@ -556,7 +650,7 @@ state = {
     "inv_has_started": False,
     "ph_value": 7.0,
 }
-def global_topbar(title, emoji="📊"):
+def global_topbar(title, emoji="📊", show_farm_selector=True):
     from pages.home import state
     from service.auth import get_user_farms, FIXED_FARMS, update_user_activity
     fullname = app.storage.user.get('fullname', 'User')
@@ -583,59 +677,54 @@ def global_topbar(title, emoji="📊"):
     if "selected_farm" not in state:
         state["selected_farm"] = farm_options[0]
     
-    with ui.element("div").classes("top-bar").style("padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;"):
-        with ui.element("div").classes("top-bar-title").style("display:flex; align-items:center; gap:12px;"):
-            with ui.element("div").style(
-                "width:28px;height:28px;background:#f0f4ff;border-radius:8px;"
-                "display:flex;align-items:center;justify-content:center;font-size:14px"
-            ):
-                ui.label(emoji)
-            
+    label_to_key = {f[1]: f[0] for f in FIXED_FARMS}
+
+    def remember_farm(label):
+        # Per-user copy of the choice (farm key) for pages that read app.storage.user.
+        try:
+            app.storage.user['current_farm'] = label_to_key.get(label, 'greenhouse_a')
+        except Exception:
+            pass
+
+    with ui.element("div").classes("top-bar"):
+        with ui.element("div").classes("top-bar-title").style("display:flex; align-items:center;"):
             # Tiêu đề trang
-            ui.label(title).style("font-weight:700; font-size:15px; color:#1a1a2e;")
-            
-            # Dropdown chọn Greenhouse/Farm (lọc theo quyền)
-            if len(farm_options) > 1:
+            ui.label(title).classes("sm-page-title")
+
+            # Dropdown chọn farm (các màn khác); Home có lối vào/ra farm riêng để khỏi lệch lựa chọn.
+            if show_farm_selector and len(farm_options) > 1:
+                if state.get("selected_farm") not in farm_options:
+                    state["selected_farm"] = farm_options[0]
+                remember_farm(state["selected_farm"])
+
                 def on_farm_change(e):
                     state["selected_farm"] = e.value
+                    remember_farm(e.value)
                     state["_update_counter"] = state.get("_update_counter", 0) + 1
-                
+
                 ui.select(
                     options=farm_options,
                     value=state.get("selected_farm", farm_options[0]),
                     on_change=on_farm_change
-                ).props('dense borderless').style("font-weight:600; font-size:13px; color:#64748b; width:150px; margin-left:10px;")
-            else:
+                ).props('dense borderless aria-label="Chọn nhà màng"').classes("sm-farm-pick")
+            elif show_farm_selector:
                 # Chỉ có 1 farm → hiện tĩnh, không cần dropdown
                 state["selected_farm"] = farm_options[0]
-                ui.label(f"🏡 {farm_options[0]}").style(
-                    "font-weight:600; font-size:13px; color:#64748b; margin-left:10px;"
-                    "background:#f0fdf4; padding:4px 10px; border-radius:8px;"
-                )
+                remember_farm(farm_options[0])
+                ui.label(farm_options[0]).classes("sm-farm-static")
 
         # Status Badge + Notification Bell + User Profile
-        with ui.element("div").style("display:inline-flex;align-items:center;gap:16px;"):
+        with ui.element("div").style("display:inline-flex;align-items:center;gap:12px;"):
             if os.getenv("SMIOT_DEMO_MODE", "true").strip().lower() in {"1", "true", "yes", "on"}:
-                ui.label("DEMO · dữ liệu mô phỏng").style(
-                    "display:inline-flex;align-items:center;background:#fff7ed;color:#c2410c;"
-                    "padding:5px 9px;border-radius:14px;font-size:10px;font-weight:800;letter-spacing:.03em;"
-                )
+                ui.label("Dữ liệu mô phỏng").classes("sm-chip sim")
             @ui.refreshable
             def system_status_indicator():
-                is_active = state.get("system_is_active", True)
-                if is_active:
-                    with ui.element("div").style(
-                        "display:inline-flex;align-items:center;gap:6px;background:#dcfce7;padding:4px 10px;border-radius:20px;"
-                    ):
-                        ui.html('<span class="dot dot-green" style="width:6px;height:6px;"></span>')
-                        ui.label("ACTIVE").style("color:#16a34a;font-size:10px;font-weight:800;letter-spacing:0.05em;")
+                # Gateway liveness only: derived from the last message the app received.
+                if state.get("system_is_active", True):
+                    ui.label("Gateway đang nhận dữ liệu").classes("sm-chip ok")
                 else:
-                    with ui.element("div").style(
-                        "display:inline-flex;align-items:center;gap:6px;background:#fee2e2;padding:4px 10px;border-radius:20px;"
-                    ):
-                        ui.html('<span class="dot" style="width:6px;height:6px;background:#ef4444;"></span>')
-                        ui.label("OFFLINE").style("color:#ef4444;font-size:10px;font-weight:800;letter-spacing:0.05em;")
-            
+                    ui.label("Gateway mất tín hiệu").classes("sm-chip act")
+
             system_status_indicator()
             client_id = ui.context.client.id
             if client_id not in client_refreshes:
@@ -650,34 +739,27 @@ def global_topbar(title, emoji="📊"):
                 notifications = s.get("notifications", [])
                 unread_count = len([n for n in notifications if not n.get("read")])
 
-                with ui.element('div').classes('relative inline-block cursor-pointer group'):
-                    # Bell Icon
-                    with ui.element('div').classes(
-                        'flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm border border-slate-200 '
-                        'transition-all duration-300 group-hover:shadow-md group-hover:scale-105 group-hover:border-slate-300'
-                    ):
-                        ui.icon('notifications', size='22px', color='#64748b').classes('transition-colors group-hover:text-slate-800')
+                with ui.element('div').classes('sm-bell').props(
+                    f'role="button" tabindex="0" aria-label="Thông báo, {unread_count} chưa đọc"'
+                ):
+                    ui.icon('notifications', size='20px', color='#46574D')
 
-                    # Red badge
                     if unread_count > 0:
-                        with ui.element('div').classes(
-                            'absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold '
-                            'min-w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm'
-                        ):
-                            ui.label(str(unread_count))
+                        ui.label(str(unread_count)).classes('sm-bell-count')
 
                     # Dropdown Menu
-                    with ui.menu().classes('w-80 rounded-2xl shadow-xl border border-slate-100 overflow-hidden mt-2 p-0').props('anchor="bottom right" self="top right" auto-close=false'):
+                    with ui.menu().classes('w-80 overflow-hidden mt-2 p-0').props('anchor="bottom right" self="top right" auto-close=false'):
                         # Header
-                        with ui.element('div').classes('flex justify-between items-center px-4 py-3 bg-slate-50 border-b border-slate-100'):
-                            ui.label('Thông báo').classes('font-bold text-slate-800 text-sm')
+                        with ui.element('div').classes('flex justify-between items-center px-4 py-3').style(
+                            'background:var(--sm-sunken);border-bottom:1px solid var(--sm-net-soft)'
+                        ):
+                            ui.label('Thông báo').classes('sm-h2').style('font-size:15px')
                             if unread_count > 0:
                                 def mark_read():
                                     for n in s.get("notifications", []): n["read"] = True
                                     state["_update_counter"] = state.get("_update_counter", 0) + 1
-                                ui.label('Đánh dấu đã đọc').classes(
-                                    'text-xs text-blue-500 font-semibold cursor-pointer hover:text-blue-700 transition-colors'
-                                ).on('click', mark_read)
+                                ui.label('Đánh dấu đã đọc').classes('sm-link cursor-pointer').style(
+                                    'font-size:12px').on('click', mark_read)
 
                         # Content list
                         with ui.element('div').classes('max-h-[320px] overflow-y-auto p-2'):
@@ -688,18 +770,61 @@ def global_topbar(title, emoji="📊"):
                             else:
                                 for notif in notifications:
                                     is_read = notif.get("read", False)
-                                    is_err = any(word in notif["text"].lower() for word in ["không", "mất", "cảnh báo", "lỗi", "❌"])
+                                    workflow_status = str(notif.get("workflow_status") or "").lower()
+                                    verification_status = str(notif.get("verification_status") or "").lower()
+                                    severity = str(notif.get("severity") or "").lower()
+                                    is_err = (
+                                        severity == "error"
+                                        or workflow_status in {"failed", "escalated"}
+                                        or verification_status == "failed"
+                                        or any(word in notif["text"].lower() for word in ["không", "mất", "cảnh báo", "lỗi", "❌"])
+                                    )
+                                    is_warning = not is_err and (
+                                        severity == "warning"
+                                        or workflow_status in {"pending_verification", "investigating"}
+                                        or verification_status in {"pending", "unknown"}
+                                    )
                                     
                                     bg_hover = "hover:bg-slate-50"
-                                    bg_base = "bg-white" if is_read else ("bg-red-50/40" if is_err else "bg-green-50/40")
+                                    bg_base = "bg-white" if is_read else ("bg-red-50/40" if is_err else ("bg-amber-50/40" if is_warning else "bg-green-50/40"))
                                     
-                                    icon_name = "error_outline" if is_err else "check_circle"
-                                    icon_color = "#ef4444" if is_err else "#22c55e"
+                                    icon_name = "error_outline" if is_err else ("warning_amber" if is_warning else "check_circle")
+                                    icon_color = "#ef4444" if is_err else ("#d97706" if is_warning else "#22c55e")
 
                                     with ui.element('div').classes(f'flex items-start gap-3 p-3 mb-1 rounded-xl {bg_base} {bg_hover} transition-colors cursor-default'):
                                         ui.icon(icon_name, size='20px', color=icon_color).classes('mt-0.5 shrink-0')
                                         with ui.element('div').classes('flex-1'):
                                             ui.label(notif["text"]).classes(f'text-[13px] leading-tight mb-1 {"font-medium text-slate-800" if not is_read else "text-slate-600"}')
+                                            if notif.get("incident_id") and notif.get("correlation_status") == "verified":
+                                                ui.link(
+                                                    f"Mở sự cố {notif['incident_id']}",
+                                                    f"/incident/{notif['incident_id']}",
+                                                ).classes('block text-[11px] text-blue-600 hover:text-blue-800')
+                                            elif notif.get("correlation_status") == "unlinked" and notif.get("workflow_id"):
+                                                ui.label('Chưa ghép được mã sự cố').classes('block text-[11px] text-amber-700')
+                                            if notif.get("workflow_status") or notif.get("verification_status"):
+                                                result_line = " · ".join(
+                                                    item for item in [
+                                                        notif.get("workflow_status"),
+                                                        notif.get("verification_status"),
+                                                    ] if item
+                                                )
+                                                ui.label(result_line).classes('block text-[11px] text-slate-500')
+                                            workflow_context = " · ".join(
+                                                item for item in [
+                                                    notif.get("farm_key"),
+                                                    notif.get("workflow_name"),
+                                                    f"run {notif.get('workflow_run_id')}" if notif.get("workflow_run_id") else None,
+                                                    f"scenario {notif.get('scenario_run_id')}" if notif.get("scenario_run_id") else None,
+                                                    f"command {notif.get('command_id')}" if notif.get("command_id") else None,
+                                                    f"monitor {notif.get('monitor_id')}" if notif.get("monitor_id") else None,
+                                                    "dữ liệu mô phỏng" if notif.get("synthetic") else None,
+                                                ] if item
+                                            )
+                                            if workflow_context:
+                                                ui.label(workflow_context).classes(
+                                                    'block text-[10px] text-slate-400 truncate'
+                                                )
                                             ui.label(notif["time"]).classes('text-[11px] text-slate-400 font-medium')
                                         
                                         # Chấm xanh nhỏ báo chưa đọc (nếu chưa đọc)
@@ -711,11 +836,11 @@ def global_topbar(title, emoji="📊"):
                 client_refreshes[client_id].append(client_bell.refresh)
             
             # User Profile Dropdown (Option 3.1)
-            with ui.element("div").style("display:flex;align-items:center;gap:8px;cursor:pointer;position:relative;") as user_profile:
+            with ui.element("div").classes("sm-user").style("position:relative;") as user_profile:
                 ui.image(f"/static/{avatar_file}").style(
-                    "width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid #e2e8f0;"
+                    "width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid #e1e7e0;"
                 )
-                ui.label(fullname).style("font-size:13px;font-weight:600;color:#1a1a2e;")
+                ui.label(fullname).classes("sm-user-name")
                 
                 with ui.menu() as menu:
                     def logout():
@@ -731,577 +856,212 @@ def sidebar(active="Home"):
     avatar_file = app.storage.user.get('avatar', 'client.png')
     permissions = app.storage.user.get('permissions', [])
 
-    # ── Application Section ──
-    nav_links = [
-        ("ri-home-4-line", "Home",      "/"),
-        ("ri-cpu-line", "Device",    "/devices"),
+    is_admin = role == "admin"
+    can_manage = is_admin or "manage_users" in permissions
+
+    # Groups follow the operator's job: see, act, follow the crop, administer.
+    # Each entry: (icon, key passed by pages as `active`, label shown, url, visible).
+    groups = [
+        ("Quan sát", [
+            ("ri-home-4-line", "Home", "Tổng quan", "/", True),
+            ("ri-radar-line", "Incident", "Sự cố", "/incident", can_manage),
+            ("ri-line-chart-line", "Chart", "Datadog", "/chart", True),
+            ("ri-table-line", "Data", "Số đo", "/data", True),
+        ]),
+        ("Điều khiển", [
+            ("ri-drop-line", "PLC", "Bơm", "/plc", True),
+            ("ri-broadcast-line", "Inverter", "Biến tần", "/inverter", True),
+            ("ri-calendar-line", "Schedule", "Lịch tưới", "/schedule", True),
+            ("ri-cpu-line", "Device", "Thiết bị", "/devices", True),
+        ]),
+        ("Mùa vụ", [
+            ("ri-plant-line", "Mùa vụ & truy xuất", "Mùa vụ và truy xuất", "/mongodb-lab", True),
+        ]),
+        ("Quản trị", [
+            ("ri-folder-open-line", "Projects", "Dự án", "/projects", is_admin),
+            ("ri-key-2-line", "Permission", "Phân quyền", "/permission", can_manage),
+        ]),
     ]
-    
-    # Riêng Projects chỉ admin mới thấy
-    if role == "admin":
-        nav_links.insert(1, ("ri-folder-open-line", "Projects",  "/projects"))
-        
-    # Luôn hiện Inverter và PLC
-    nav_links.append(("ri-broadcast-line", "Inverter", "/inverter"))
-    nav_links.append(("ri-settings-4-line", "PLC",      "/plc"))
-    nav_links.append(("ri-calendar-line", "Schedule", "/schedule"))
-    nav_links.append(("ri-line-chart-line", "Chart", "/chart"))
-    nav_links.append(("ri-table-line", "Data", "/data"))
-    nav_links.append(("ri-database-2-line", "Mùa vụ & truy xuất", "/mongodb-lab"))
-    
-    # ── Administration Section ──
-    admin_links = []
-    # Riêng Permission chỉ admin mới thấy
-    if role == "admin" or "manage_users" in permissions:
-        admin_links.append(("ri-key-2-line", "Permission", "/permission"))
 
-    with ui.element("div").classes("sidebar"):
+    with ui.element("nav").classes("sidebar").props('aria-label="Điều hướng chính"'):
         with ui.element("div").classes("sidebar-logo"):
-            ui.image('/static/logo.png').style("width:32px; height:32px; object-fit: contain;")
-            ui.label("SMART FARM").style("font-weight:900;font-size:16px;letter-spacing:0.02em;margin-left:8px;color:#1e293b;line-height:1.2")
+            ui.image('/static/logo.png').style("width:30px; height:30px; object-fit: contain; flex:none;")
+            with ui.element("div"):
+                ui.label("SMIOT").classes("sm-brand")
+                ui.label("10 nhà màng dưa lưới").classes("sm-brand-sub")
 
-        for icon, label, url in nav_links:
-            cls = f"nav-item {'active' if label == active else ''}"
-            
-            # Luôn cho phép tất cả các tài khoản vào xem dữ liệu
-            with ui.element("a").props(f'href="{url}"').classes(cls):
-                ui.html(f'<i class="{icon}"></i><span>{label}</span>')
-
-        # Administration section
-        if admin_links:
-            ui.label("Administration").classes("sidebar-section").style("margin-top:10px")
-            for icon, label, url in admin_links:
-                cls = f"nav-item {'active' if label == active else ''}"
-                with ui.element("a").props(f'href="{url}"').classes(cls):
+        for group_label, links in groups:
+            links = [link for link in links if link[4]]
+            if not links:
+                continue
+            ui.label(group_label).classes("sidebar-section")
+            for icon, key, label, url, _visible in links:
+                cls = f"nav-item {'active' if key == active else ''}"
+                current = ' aria-current="page"' if key == active else ''
+                with ui.element("a").props(f'href="{url}"{current}').classes(cls):
                     ui.html(f'<i class="{icon}"></i><span>{label}</span>')
-        ui.element("div").style("flex:1")
-        
-        with ui.element("div").style("padding:16px;text-align:center;border-top:1px solid rgba(241, 245, 249, 0.6);font-size:10px;color:#94a3b8;font-weight:600"):
-            ui.label("SMIOT System v2.0").style("margin-bottom:2px;display:block")
-            ui.label("© 2026 Smart Farm").style("opacity:0.8;display:block")
+        ui.element("div").classes("sm-rail-gap").style("flex:1")
 
-
-def metric_box(label: str, value, unit: str, bar_pct: float = None, bar_color: str = "#4361ee"):
-    with ui.element("div").classes("metric-box"):
-        ui.label(label).classes("metric-label")
-        with ui.element("div").style("display:flex;align-items:baseline;gap:3px"):
-            ui.label(str(value)).classes("metric-value")
-            ui.label(unit).classes("metric-unit")
-        if bar_pct is not None:
-            with ui.element("div").classes("progress-bar-bg"):
-                pct = max(0, min(100, bar_pct))
-                ui.element("div").classes("progress-bar").style(
-                    f"width:{pct}%;background:{bar_color}"
-                )
-
-
-def get_trend_icon(k: str, field: str):
-    key = f"{k}_{field}"
-    curr = state.get(key, 0.0)
-    prev = state.get(f"{key}_old", curr)
-    try:
-        curr_val = float(curr)
-        prev_val = float(prev)
-        if curr_val > prev_val:
-            return " 📈"
-        elif curr_val < prev_val:
-            return " 📉"
-    except Exception:
-        pass
-    return ""
-
-
-def node_card(k: str, title: str):
-    s = state
-    status = s.get(f"{k}_status", "OFFLINE")
-    is_offline = status != "ONLINE"
-    
-    with ui.element("div").classes("card").style("border-top: 4px solid #20bf6b" if not is_offline else "border-top: 4px solid #ef4444"):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("🌿").style("font-size:20px")
-                ui.label(title).style("font-size:15px;font-weight:700")
-            # Pulsating ONLINE/OFFLINE badge
-            if not is_offline:
-                with ui.element("div").classes("badge badge-online"):
-                    ui.html('<span class="dot dot-green"></span>')
-                    ui.label("ONLINE")
-            else:
-                with ui.element("div").classes("badge").style("background:#fee2e2;color:#ef4444"):
-                    ui.html('<span class="dot dot-red"></span>')
-                    ui.label("OFFLINE")
-
-        if is_offline:
-            with ui.column().classes("w-full items-center py-8 text-rose-500"):
-                ui.icon("wifi_off", size="40px")
-                ui.label("Mất kết nối cảm biến").classes("text-sm font-bold mt-2")
-                ui.label("Kiểm tra nguồn/Lora Node").classes("text-xs text-slate-400 text-center")
-                ui.label(f"Cập nhật cuối: {s.get(f'{k}_updated', 'Không rõ')}").style("color:#aaa;font-size:11px;margin-top:12px")
-            return
-
-        ui.label("KHÔNG KHÍ").classes("sub-section")
-        with ui.element("div").classes("metric-grid"):
-            air_temp_trend = get_trend_icon(k, "air_temp")
-            air_hum_trend = get_trend_icon(k, "air_hum")
-            metric_box("NHIỆT ĐỘ", f"{s[f'{k}_air_temp']}{air_temp_trend}", "°C",
-                       bar_pct=s[f"{k}_air_temp"] / 50 * 100, bar_color="#f77f00")
-            metric_box("ĐỘ ẨM", f"{s[f'{k}_air_hum']}{air_hum_trend}", "%",
-                       bar_pct=s[f"{k}_air_hum"], bar_color="#4cc9f0")
-
-        ui.label("ĐẤT TRỒNG").classes("sub-section")
-        with ui.element("div").classes("metric-grid"):
-            soil_temp_trend = get_trend_icon(k, "soil_temp")
-            soil_hum_trend = get_trend_icon(k, "soil_hum")
-            metric_box("NHIỆT ĐỘ", f"{s[f'{k}_soil_temp']}{soil_temp_trend}", "°C",
-                       bar_pct=s[f"{k}_soil_temp"] / 50 * 100, bar_color="#f77f00")
-            metric_box("ĐỘ ẨM", f"{s[f'{k}_soil_hum']}{soil_hum_trend}", "%",
-                       bar_pct=s[f"{k}_soil_hum"], bar_color="#2ec4b6")
-
-        with ui.element("div").classes("ec-footer"):
-            ui.label(f"⚡ EC: {s[f'{k}_ec']} mS/cm").style(
-                "color:#7c3aed;font-size:12px;font-weight:600")
-            ui.label(f"🕐 Cập nhật: {s[f'{k}_updated']}").style("color:#aaa;font-size:11px")
-
-
-
-def flow_meter_card():
-    s = state
-    with ui.element("div").classes("card").style(
-        "display:flex;flex-direction:column;justify-content:space-between;height:100%"
-    ):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("⚡").style("font-size:20px;color:#2196f3")
-                ui.label("Flow_Meter").style("font-size:15px;font-weight:700")
-            # Pulsating LIVE badge
-            with ui.element("div").classes("badge badge-live"):
-                ui.html('<span class="dot dot-blue"></span>')
-                ui.label("LIVE")
-
-        with ui.element("div").classes("flow-lines"):
-            for line, val in [("LINE01", s["flow_line1"]), ("LINE02", s["flow_line2"])]:
-                with ui.element("div").classes("flow-line-box"):
-                    ui.label(line).style("font-size:10px;font-weight:700;color:#aaa;letter-spacing:0.08em")
-                    with ui.element("div").style(
-                        "display:flex;align-items:baseline;gap:3px;justify-content:center;margin-top:6px"
-                    ):
-                        ui.label(str(val)).style("font-size:24px;font-weight:700;color:#1a1a2e")
-                        ui.label("L/m").style("font-size:12px;color:#aaa")
-
-        with ui.element("div").classes("flow-total-box"):
-            ui.label("📊").style("font-size:18px")
-            with ui.element("div"):
-                ui.label("TỔNG LƯU LƯỢNG HIỆN TẠI").style(
-                    "font-size:9px;color:rgba(255,255,255,0.5);font-weight:700;letter-spacing:0.08em")
-                with ui.element("div").style("display:flex;align-items:baseline;gap:4px"):
-                    ui.label(str(s["flow_total"])).classes("flow-total-val")
-                    ui.label("L").style("font-size:14px;color:rgba(255,255,255,0.5)")
-            ui.label("⇄").style("color:rgba(255,255,255,0.3);font-size:18px")
-
-        with ui.element("div").style(
-            "display:flex;justify-content:space-between;margin-top:12px;"
-            "padding-top:10px;border-top:1px solid #f0f0f0"
-        ):
-            ui.label(f"🕐 Update: {s['flow_updated']}").style("font-size:11px;color:#aaa")
-            ui.label(f"S/N: {s['flow_serial']}").style("font-size:11px;color:#aaa")
-
-
-def ec_card():
-    s = state
-    # Lấy trạng thái online của EC
-    status = "ONLINE" if s.get("ec_online", 1) == 1 else "OFFLINE"
-    is_offline = status != "ONLINE"
-    
-    with ui.element("div").classes("card").style("border-top: 4px solid #7c3aed" if not is_offline else "border-top: 4px solid #ef4444"):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("⚡").style("font-size:20px;color:#7c3aed")
-                ui.label("Cảm Biến EC").style("font-size:15px;font-weight:700")
-            # Pulsating badge
-            if not is_offline:
-                with ui.element("div").classes("badge badge-online"):
-                    ui.html('<span class="dot dot-green"></span>')
-                    ui.label("ONLINE")
-            else:
-                with ui.element("div").classes("badge").style("background:#fee2e2;color:#ef4444"):
-                    ui.html('<span class="dot dot-red"></span>')
-                    ui.label("OFFLINE")
-                    
-        if is_offline:
-            with ui.column().classes("w-full items-center py-8 text-rose-500"):
-                ui.icon("wifi_off", size="40px")
-                ui.label("Mất kết nối cảm biến EC").classes("text-sm font-bold mt-2")
-                ui.label(f"Cập nhật cuối: {s.get('ec_updated', 'Không rõ')}").style("color:#aaa;font-size:11px;margin-top:12px")
-            return
-            
-        ui.label("THÔNG SỐ EC").classes("sub-section")
-        with ui.element("div").classes("metric-grid"):
-            metric_box("ĐỘ DẪN ĐIỆN", f"{s.get('ec_val', 0.0):.2f}", "mS/cm",
-                       bar_pct=s.get('ec_val', 0.0) / 5.0 * 100, bar_color="#7c3aed")
-            metric_box("ĐIỆN ÁP", f"{s.get('ec_v', 0.0):.2f}", "V",
-                       bar_pct=s.get('ec_v', 0.0) / 5.0 * 100, bar_color="#3b82f6")
-                       
-        with ui.element("div").style("display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0"):
-            ui.label(f"Raw: {s.get('ec_raw', 0)}").style("font-size:11px;color:#aaa")
-            ui.label(f"🕐 Cập nhật: {s.get('ec_updated', '')}").style("font-size:11px;color:#aaa")
-
-
-def ph_card():
-    s = state
-    # Lấy trạng thái online của pH
-    status = "ONLINE" if s.get("ph_online", 1) == 1 else "OFFLINE"
-    is_offline = status != "ONLINE"
-    
-    with ui.element("div").classes("card").style("border-top: 4px solid #10b981" if not is_offline else "border-top: 4px solid #ef4444"):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("🧪").style("font-size:20px;color:#10b981")
-                ui.label("Cảm Biến pH").style("font-size:15px;font-weight:700")
-            # Pulsating badge
-            if not is_offline:
-                with ui.element("div").classes("badge badge-online"):
-                    ui.html('<span class="dot dot-green"></span>')
-                    ui.label("ONLINE")
-            else:
-                with ui.element("div").classes("badge").style("background:#fee2e2;color:#ef4444"):
-                    ui.html('<span class="dot dot-red"></span>')
-                    ui.label("OFFLINE")
-                    
-        if is_offline:
-            with ui.column().classes("w-full items-center py-8 text-rose-500"):
-                ui.icon("wifi_off", size="40px")
-                ui.label("Mất kết nối cảm biến pH").classes("text-sm font-bold mt-2")
-                ui.label(f"Cập nhật cuối: {s.get('ph_updated', 'Không rõ')}").style("color:#aaa;font-size:11px;margin-top:12px")
-            return
-            
-        ui.label("THÔNG SỐ PH").classes("sub-section")
-        with ui.element("div").classes("metric-grid"):
-            metric_box("ĐỘ pH", f"{s.get('ph_val', 7.0):.2f}", "pH",
-                       bar_pct=s.get('ph_val', 7.0) / 14.0 * 100, bar_color="#10b981")
-            metric_box("ĐIỆN ÁP MV", f"{s.get('ph_mv', 0.0):.1f}", "mV",
-                       bar_pct=abs(s.get('ph_mv', 0.0)) / 1000.0 * 100, bar_color="#f59e0b")
-                       
-        with ui.element("div").style("display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0"):
-            ui.label(f"Raw: {s.get('ph_raw', 0)}").style("font-size:11px;color:#aaa")
-            ui.label(f"🕐 Cập nhật: {s.get('ph_updated', '')}").style("font-size:11px;color:#aaa")
-
-
-def weather_card(on_refresh=None):
-    s = state
-    with ui.element("div").classes("weather-card"):
-        with ui.element("div").style("display:flex;align-items:flex-start;justify-content:space-between"):
-            with ui.element("div"):
-                ui.label(s["weather_city"]).style("font-size:20px;font-weight:700;color:white")
-                ui.label(f"Vị trí: {s['weather_lat']}, {s['weather_lng']}").style(
-                    "font-size:11px;color:rgba(255,255,255,0.65);margin-top:3px")
-            # Live badge with pulsating blue dot
-            with ui.element("div").style(
-                "background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:20px;"
-                "display:inline-flex;align-items:center;gap:6px"
-            ):
-                ui.html('<span class="dot dot-blue"></span>')
-                ui.label("Live").style("font-size:11px;font-weight:700;color:white")
-
-        ui.label("DỰ BÁO 3 GIỜ TỚI").style(
-            "font-size:10px;color:rgba(255,255,255,0.7);font-weight:700;"
-            "letter-spacing:0.08em;margin-top:14px;margin-bottom:8px")
-        
-        now = datetime.now()
-        with ui.element("div").classes("weather-hourly"):
-            for hour, temp, rain in [
-                ((now + timedelta(hours=1)).strftime("%H:00"), s["weather_10h_temp"], s["weather_10h_rain"]),
-                ((now + timedelta(hours=2)).strftime("%H:00"), s["weather_11h_temp"], s["weather_11h_rain"]),
-                ((now + timedelta(hours=3)).strftime("%H:00"), s["weather_12h_temp"], s["weather_12h_rain"]),
-            ]:
-                with ui.element("div").classes("weather-hour-box"):
-                    ui.label(hour).style("font-size:11px;color:rgba(255,255,255,0.8);font-weight:600")
-                    ui.label(f"{temp}°").style("font-size:18px;font-weight:700;color:white;margin:4px 0")
-                    ui.label(f"💧 {rain}%").style("font-size:11px;color:rgba(255,255,255,0.8)")
-
-        ui.label("CHỈ SỐ TỔNG HỢP NGÀY").style(
-            "font-size:10px;color:rgba(255,255,255,0.7);font-weight:700;"
-            "letter-spacing:0.08em;margin-bottom:8px")
-        with ui.element("div").classes("weather-daily-stats"):
-            with ui.element("div"):
-                ui.label("Bức xạ mặt trời").style("font-size:10px;color:rgba(255,255,255,0.7);font-weight:600")
-                ui.label(f"{s['weather_solar']:,} W/m²").style("font-size:14px;font-weight:700;color:#ffd166")
-            with ui.element("div"):
-                ui.label("Thoát hơi nước (ETO)").style("font-size:10px;color:rgba(255,255,255,0.7);font-weight:600")
-                ui.label(f"{s['weather_eto']} mm").style("font-size:14px;font-weight:700;color:#a8dadc")
-
-        # Nút refresh thời tiết bằng tay
-        def refresh_weather():
-            ui.notify('Đang tải dữ liệu thời tiết...', color='info')
-            if on_refresh:
-                on_refresh()
-            
-        ui.label("Làm mới dữ liệu").style(
-            "display:block;text-align:center;margin-top:12px;"
-            "font-size:12px;color:rgba(255,255,255,0.8);cursor:pointer;text-decoration:underline"
-        ).on('click', refresh_weather)
-
-
-def ai_analysis_card():
-    s = state
-    with ui.element("div").classes("ai-card"):
-        ui.label("🤖  Dự đoán từ AI").style("font-size:15px;font-weight:700;color:white;margin-bottom:14px")
-        with ui.element("div").style("display:flex;align-items:center;gap:8px;margin-bottom:10px"):
-            ui.label("💧").style("font-size:16px")
-            ui.label("Lượng nước đề xuất").style("font-size:13px;color:rgba(255,255,255,0.7)")
-            ui.label(f"{s['ai_water_suggest']} ml").style(
-                "font-size:18px;font-weight:700;color:#2ec4b6;margin-left:4px")
-
-        with ui.element("div").style("display:flex;align-items:center;gap:8px"):
-            ui.label("Trạng thái Van :").style("font-size:13px;color:rgba(255,255,255,0.6)")
-            ui.element("div").style(
-                f"padding:4px 14px;background:{'#20bf6b' if s['van_status'] == 1 else '#555'};"
-                f"border-radius:20px;color:white;font-size:12px;font-weight:700")
-            ui.label("Đang tưới" if s["van_status"] == 1 else "Không tưới")
-
-        ui.label(s["ai_time"]).style("font-size:11px;color:rgba(255,255,255,0.4);margin-top:14px")
-
-
-def inverter_summary_card():
-    s = state
-    is_run = s["inv_status"] == 1
-    with ui.element("div").classes("card"):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("🔌").style("font-size:20px")
-                ui.label("Inverter Status").style("font-size:15px;font-weight:700")
-            with ui.element("div").classes("badge badge-online" if is_run else "badge").style(
-                "" if is_run else "background:#f1f5f9;color:#94a3b8"
-            ):
-                ui.html('<span class="dot dot-green"></span>' if is_run else
-                        '<span class="dot" style="background:#94a3b8"></span>')
-                ui.label("RUNNING" if is_run else "STOPPED")
-        
-        with ui.element("div").classes("metric-grid"):
-            metric_box("TẦN SỐ", s["inv_hz"], "Hz", bar_pct=s["inv_hz"]/50*100, bar_color="#facc15")
-            metric_box("ÁP SUẤT", s["inv_p_cur"], "BAR", bar_pct=s["inv_p_cur"]/2*100, bar_color="#3b82f6")
-        
-        with ui.element("div").classes("ec-footer"):
-            ui.label(f"⚡ V_IN: {s['inv_v_in']}V").style("color:#4361ee;font-size:12px;font-weight:600")
-            ui.label(f"🕐 {s['inv_updated']}").style("color:#aaa;font-size:11px")
-
-def ph_ec_card():
-    s = state
-    with ui.element("div").classes("card"):
-        with ui.element("div").classes("card-header"):
-            with ui.element("div").classes("card-title"):
-                ui.label("🧪").style("font-size:20px")
-                ui.label("Chỉ số Nước (PH/EC)").style("font-size:15px;font-weight:700")
-        
-        with ui.element("div").classes("metric-grid"):
-            # PH box
-            with ui.element("div").classes("metric-box"):
-                ui.label("ĐỘ PH").classes("metric-label")
-                with ui.element("div").style("display:flex;align-items:baseline;gap:3px"):
-                    ui.label(str(s["ph_value"])).classes("metric-value").style("color:#059669")
-                with ui.element("div").classes("progress-bar-bg"):
-                    pct = (s["ph_value"] / 14) * 100
-                    ui.element("div").classes("progress-bar").style(f"width:{pct}%;background:#059669")
-            
-            # EC box (from id4)
-            metric_box("ĐỘ DẪN EC", s["node1_ec"], "mS/cm", bar_pct=s["node1_ec"]/5*100, bar_color="#7c3aed")
-
-
-def farm_status_header():
-    s = state
-    now = datetime.now()
-    today_str = now.strftime("%Y-%m-%d")
-    
-    # Lấy thông tin lịch tưới tiếp theo và tổng nước thực tế hôm nay
-    schedules = auth.get_schedules("greenhouse_a", date=today_str)
-    
-    # Tính tổng nước thực tế hôm nay từ schedule_logs
-    try:
-        total_water_today = auth.get_total_actual_water("greenhouse_a", today_str)
-    except Exception:
-        total_water_today = 0.0
-        
-    pending_scheds = [sch for sch in schedules if sch["status"] == "pending" and sch["start_time"] > now.strftime("%H:%M")]
-    
-    next_irrigation = "Không có"
-    if pending_scheds:
-        sch = pending_scheds[0]
-        try:
-            start_dt = datetime.strptime(sch["start_time"], "%H:%M")
-            end_dt = start_dt + timedelta(minutes=float(sch["water_amount"]))
-            next_irrigation = f"{sch['start_time']}-{end_dt.strftime('%H:%M')} ({sch['water_amount']:.0f}p)"
-        except Exception:
-            next_irrigation = f"{sch['start_time']} ({sch['water_amount']:.0f}p)"
-    else:
-        tomorrow_str = (now + timedelta(days=1)).strftime("%Y-%m-%d")
-        tomorrow_scheds = auth.get_schedules("greenhouse_a", date=tomorrow_str)
-        if tomorrow_scheds:
-            sch = tomorrow_scheds[0]
-            try:
-                start_dt = datetime.strptime(sch["start_time"], "%H:%M")
-                end_dt = start_dt + timedelta(minutes=float(sch["water_amount"]))
-                next_irrigation = f"Mai {sch['start_time']}-{end_dt.strftime('%H:%M')} ({sch['water_amount']:.0f}p)"
-            except Exception:
-                next_irrigation = f"Mai {sch['start_time']} ({sch['water_amount']:.0f}p)"
-
-    # Đếm số cảnh báo vật lý đang hoạt động thực tế
-    active_warnings = 0
-    if not s.get("system_is_active", True):
-        active_warnings += 1
-    else:
-        if s.get("node1_status") == "OFFLINE":
-            active_warnings += 1
-        if s.get("node2_status") == "OFFLINE":
-            active_warnings += 1
-            
-    if s.get("plc_online", 0) != 1:
-        active_warnings += 1
-    else:
-        # Nếu PLC online, kiểm tra lệch tiếp điểm bơm
-        for i in range(8):
-            if s.get(f"bit{i}", 0) != s.get(f"q{i}", 0):
-                active_warnings += 1
-                
-    if s.get("inv_online", 1) != 1:
-        active_warnings += 1
-
-    # Trạng thái Gateway
-    gateway_online = s.get("system_is_active", True)
-    gateway_status_text = "Trực tuyến" if gateway_online else "Mất kết nối"
-    gateway_class = "dot-green" if gateway_online else "dot-red"
-    
-    # Trạng thái PLC
-    plc_online = s.get("plc_online", 0) == 1
-    plc_status_text = "Trực tuyến" if plc_online else "Ngoại tuyến"
-    plc_class = "dot-green" if plc_online else "dot-red"
-
-    # Trạng thái Inverter
-    inv_running = s.get("inv_status", 0) == 1
-    inv_online = s.get("inv_online", 1) == 1
-    inv_status_text = "Đang chạy" if (inv_online and inv_running) else ("Đang dừng" if inv_online else "Ngoại tuyến")
-    inv_class = "dot-green" if (inv_online and inv_running) else ("dot-yellow" if inv_online else "dot-red")
-
-    # Trạng thái Lora Node 1 & 2
-    node1_status = s.get("node1_status", "OFFLINE")
-    node1_online = node1_status == "ONLINE"
-    node1_status_text = "Trực tuyến" if node1_online else "Ngoại tuyến"
-    node1_class = "dot-green" if node1_online else "dot-red"
-
-    # Trạng thái Node 2
-    node2_status = s.get("node2_status", "OFFLINE")
-    node2_online = node2_status == "ONLINE"
-    node2_status_text = "Trực tuyến" if node2_online else "Ngoại tuyến"
-    node2_class = "dot-green" if node2_online else "dot-red"
-
-    with ui.element("div").classes(
-        "w-full bg-white/80 backdrop-blur-md border border-slate-100 rounded-2xl shadow-sm p-4 mb-5 "
-        "flex flex-wrap lg:flex-nowrap items-center justify-between gap-4"
-    ):
-        # Trạng thái hệ thống (Các nodes & Thiết bị)
-        with ui.row().classes("flex-wrap items-center gap-6 divide-x divide-slate-100"):
-            # Gateway
-            with ui.row().classes("items-center gap-2.5"):
-                ui.html("🌐").style("font-size:16px")
-                with ui.column().classes("gap-0.5"):
-                    ui.label("GATEWAY").style("font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:0.05em")
-                    with ui.row().classes("items-center gap-1.5"):
-                        ui.html(f'<span class="dot {gateway_class}"></span>')
-                        ui.label(gateway_status_text).style("font-size:12px; font-weight:700; color:#1a1a2e")
-            
-            # PLC
-            with ui.row().classes("items-center gap-2.5 pl-6"):
-                ui.html("⚙️").style("font-size:16px")
-                with ui.column().classes("gap-0.5"):
-                    ui.label("PLC SIEMENS").style("font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:0.05em")
-                    with ui.row().classes("items-center gap-1.5"):
-                        ui.html(f'<span class="dot {plc_class}"></span>')
-                        ui.label(plc_status_text).style("font-size:12px; font-weight:700; color:#1a1a2e")
-
-            # Inverter
-            with ui.row().classes("items-center gap-2.5 pl-6"):
-                ui.html("🔌").style("font-size:16px")
-                with ui.column().classes("gap-0.5"):
-                    ui.label("BIẾN TẦN GD20").style("font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:0.05em")
-                    with ui.row().classes("items-center gap-1.5"):
-                        ui.html(f'<span class="dot {inv_class}"></span>')
-                        ui.label(inv_status_text).style("font-size:12px; font-weight:700; color:#1a1a2e")
-
-            # Node Lora 1
-            with ui.row().classes("items-center gap-2.5 pl-6"):
-                ui.html("📡").style("font-size:16px")
-                with ui.column().classes("gap-0.5"):
-                    ui.label("NODE 1").style("font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:0.05em")
-                    with ui.row().classes("items-center gap-1.5"):
-                        ui.html(f'<span class="dot {node1_class}"></span>')
-                        ui.label(node1_status_text).style("font-size:12px; font-weight:700; color:#1a1a2e")
-
-            # Node Lora 2
-            with ui.row().classes("items-center gap-2.5 pl-6"):
-                ui.html("📡").style("font-size:16px")
-                with ui.column().classes("gap-0.5"):
-                    ui.label("NODE 2").style("font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:0.05em")
-                    with ui.row().classes("items-center gap-1.5"):
-                        ui.html(f'<span class="dot {node2_class}"></span>')
-                        ui.label(node2_status_text).style("font-size:12px; font-weight:700; color:#1a1a2e")
-
-        # Thông tin Lịch tưới & Cảnh báo (Phía bên phải thanh bar)
-        with ui.row().classes("items-center gap-4 flex-wrap lg:flex-nowrap"):
-            # Tổng nước hôm nay
-            with ui.element("div").classes("bg-emerald-50/60 border border-emerald-100/50 rounded-xl px-3 py-1.5 flex items-center gap-2"):
-                ui.icon("water_drop", color="emerald-500").style("font-size:16px")
-                with ui.column().classes("gap-0"):
-                    ui.label("TỔNG NƯỚC HÔM NAY").style("font-size:8px; font-weight:800; color:#059669; letter-spacing:0.05em")
-                    ui.label(f"{total_water_today:.0f} Lít").style("font-size:11px; font-weight:700; color:#064e3b")
-
-            # Lịch tưới tiếp theo
-            with ui.element("div").classes("bg-blue-50/60 border border-blue-100/50 rounded-xl px-3 py-1.5 flex items-center gap-2"):
-                ui.html("⏰").style("font-size:14px")
-                with ui.column().classes("gap-0"):
-                    ui.label("LỊCH TIẾP THEO").style("font-size:8px; font-weight:800; color:#3b82f6; letter-spacing:0.05em")
-                    ui.label(next_irrigation).style("font-size:11px; font-weight:700; color:#1d4ed8")
-
-            # Số cảnh báo hoạt động
-            with ui.element("div").classes("bg-rose-50/60 border border-rose-100/50 rounded-xl px-3 py-1.5 flex items-center gap-2"):
-                ui.html("⚠️").style("font-size:14px")
-                with ui.column().classes("gap-0"):
-                    ui.label("CẢNH BÁO").style("font-size:8px; font-weight:800; color:#f43f5e; letter-spacing:0.05em")
-                    if active_warnings > 0:
-                        ui.label(f"{active_warnings} Đang có").style("font-size:11px; font-weight:800; color:#e11d48")
-                    else:
-                        ui.label("Ổn định").style("font-size:11px; font-weight:700; color:#16a34a")
-
-
-# (Đã loại bỏ Trung tâm hành động màu vàng theo yêu cầu)
+        with ui.element("div").classes("sm-rail-foot"):
+            ui.label("Thiết bị trong hệ thống là thiết bị ảo. Lệnh chỉ tới bộ mô phỏng.")
 
 
 # ─────────────────────────────────────────────
-# PAGE DEFINITION
+# HOME: màn biểu đồ dựng từ MongoDB (pages/farm_overview_component.py giữ truy vấn và các khối hiển thị)
 # ─────────────────────────────────────────────
+from nicegui import background_tasks, run
+from components.ui_kit import farm_tabs, fmt_time, page_header, state_panel, status_chip
+from pages import farm_overview_component as fleet
+from service.farm_registry import FARM_LABELS
+
+HOME_CSS = """
+.sm-home { display: flex; flex-direction: column; gap: 16px; width: 100%; min-width: 0; }
+.sm-home > :empty { display: none; }
+.sm-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sm-split { display: grid; grid-template-columns: minmax(0, 2.4fr) minmax(0, 1fr); gap: 16px; width: 100%; align-items: stretch; }
+.sm-split-wide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; width: 100%; align-items: stretch; }
+.sm-split > .sm-panel, .sm-split-wide > .sm-panel, .sm-cols-2 > .sm-panel { height: 100%; }
+.sm-cols-2 { align-items: stretch; }
+.sm-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .sm-matrix { min-width: 700px; } }
+.sm-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; width: 100%; }
+@media (max-width: 1100px) {
+    .sm-split, .sm-split-wide { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+    .sm-home { gap: 12px; padding-bottom: 76px; }
+    .sm-charts { grid-template-columns: minmax(0, 1fr); }
+}
+"""
+
+
 @ui.page("/")
-def trang_chu():
+def trang_chu(farm: str | None = None):
     if not check_login(): return
 
-    # --- Định nghĩa các hàm logic và Timer (Đặt ở đầu trang, ngoài mọi container) ---
-    def fetch_weather():
-        client = WeatherAPIClient()
-        res = client.get_weather_data()
-        if res.get("status") == "success":
-            d = res["data"]
-            state["weather_lat"] = str(d["lat"])
-            state["weather_lng"] = str(d["lon"])
-            state["weather_solar"] = d["total_radiation_day"]
-            state["weather_eto"] = d["total_et0_day"]
-            state["weather_10h_temp"] = d["t1h"]
-            state["weather_10h_rain"] = d["h1h"]
-            state["weather_11h_temp"] = d["t2h"]
-            state["weather_11h_rain"] = d["h2h"]
-            state["weather_12h_temp"] = d["t3h"]
-            state["weather_12h_rain"] = d["h3h"]
-            render_content_area.refresh()
+    farm_keys = tuple(fleet._allowed_farms())
+    can_open = fleet.can_open_incident()
+    client = ui.context.client
+    client_id = client.id
 
-    def check_ui_update():
-        if not hasattr(check_ui_update, "last_counter"):
-            check_ui_update.last_counter = 0
+    # Việc đang xem màn nào chỉ thuộc về client này; state toàn cục chỉ nhận farm đã chọn cho các trang khác.
+    view = {"farm": None, "hours": 6, "more": set()}  # more: danh sách đang mở rộng của client này
+    data: dict = {"fleet": None, "events": None, "lines": None, "extra": None, "series": None, "weather": None}
+    seen = {"sig": None}
+    busy = {"slow": False}
 
+    if farm and farm in farm_keys:
+        view["farm"] = farm
+        state["selected_farm"] = FARM_LABELS.get(farm, farm)
+        app.storage.user["current_farm"] = farm
+
+    # --- dữ liệu ---
+    def cards() -> list[dict]:
+        return ((data["fleet"] or {}).get("value") or {}).get("cards", [])
+
+    def current_card() -> dict | None:
+        return next((c for c in cards() if c["farm_key"] == view["farm"]), None)
+
+    async def call(fn, *args) -> dict:
+        try:
+            return await run.io_bound(fn, *args)
+        except Exception as exc:
+            return {"value": None, "read_at": None, "stale": False,
+                    "error": f"Không đọc được dữ liệu ({type(exc).__name__})"}
+
+    async def load_fleet() -> None:
+        data["fleet"] = await call(fleet.get_fleet, farm_keys)
+
+    async def fetch_weather() -> None:
+        loaded = await call(fleet.get_weather)
+        data["weather"] = loaded
+        d = loaded.get("value")
+        if d:  # trạng thái dùng chung chỉ nhận số thật từ Open-Meteo
+            try:
+                state["weather_lat"], state["weather_lng"] = str(d["lat"]), str(d["lon"])
+                state["weather_solar"], state["weather_eto"] = d["total_radiation_day"], d["total_et0_day"]
+                for hour in (1, 2, 3):
+                    state[f"weather_{9 + hour}h_temp"] = d[f"t{hour}h"]
+                    state[f"weather_{9 + hour}h_rain"] = d[f"h{hour}h"]
+            except KeyError:
+                pass
+
+    async def load_slow() -> None:
+        if busy["slow"]:
+            return
+        busy["slow"] = True
+        try:
+            for _ in range(3):
+                key, hours = view["farm"], view["hours"]
+                if key is None:
+                    events, lines = await asyncio.gather(call(fleet.get_events, farm_keys),
+                                                         call(fleet.get_fleet_series, farm_keys, hours))
+                else:
+                    extra, series = await asyncio.gather(call(fleet.get_farm_extra, key),
+                                                         call(fleet.get_farm_series, key, hours))
+                    await fetch_weather()
+                if view["farm"] == key and view["hours"] == hours:
+                    if key is None:
+                        data["events"], data["lines"] = events, lines
+                    else:
+                        data["extra"], data["series"] = extra, series
+                    break
+        finally:
+            busy["slow"] = False
+
+    async def slow_then_refresh() -> None:
+        await load_slow()
+        refresh_slow()
+
+    def retry_slow() -> None:
+        fleet.invalidate()
+        background_tasks.create(slow_then_refresh())
+
+    async def retry_all() -> None:
+        fleet.invalidate()
+        await load_fleet()
+        refresh_live()
+        await slow_then_refresh()
+
+    # --- điều hướng trong trang ---
+    def select_farm(key: str | None) -> None:
+        if key is not None and key not in farm_keys:
+            return
+        view["farm"] = key
+        data["extra"] = data["series"] = None
+        if key is not None:
+            state["selected_farm"] = FARM_LABELS.get(key, key)
+            app.storage.user["current_farm"] = key
+        refresh_live()
+        refresh_slow()
+        background_tasks.create(slow_then_refresh())
+
+    def toggle_more(key: str) -> None:
+        view["more"].symmetric_difference_update({key})
+        render_fleet_signals.refresh()
+        render_fleet_events.refresh()
+        render_farm_extra.refresh()
+
+    def set_hours(hours: int) -> None:
+        view["hours"] = hours
+        data["lines"] = data["series"] = None
+        refresh_slow()
+        background_tasks.create(slow_then_refresh())
+
+    def open_incident(incident_id: str) -> None:
+        ui.navigate.to(f"/incident/{incident_id}")
+
+    def refresh_live() -> None:
+        render_content_area.refresh()
+        render_farm_devices.refresh()
+
+    def refresh_slow() -> None:
+        for section in (render_fleet_signals, render_fleet_lines, render_fleet_events,
+                        render_farm_charts, render_farm_extra):
+            section.refresh()
+
+    # --- Timer ---
+    async def check_ui_update():
         import time
         from datetime import datetime
         last_seen = state.get("system_last_seen", time.time())
@@ -1309,9 +1069,9 @@ def trang_chu():
 
         if gateway_timeout:
             if state.get("system_is_active", True):
+                # Gateway silence only flags the gateway; node status comes from MongoDB
+                # (telemetry_health.compute_node_status), never forced here.
                 state["system_is_active"] = False
-                state["node1_status"] = "OFFLINE"
-                state["node2_status"] = "OFFLINE"
                 if "notifications" not in state: state["notifications"] = []
                 text = "Hệ thống gateway không nhận được phản hồi"
                 if not state["notifications"] or state["notifications"][0]["text"] != text:
@@ -1326,145 +1086,182 @@ def trang_chu():
                     state["notifications"].insert(0, {"time": datetime.now().strftime("%H:%M:%S"), "text": text})
                 state["_update_counter"] = state.get("_update_counter", 0) + 1
 
-            # Kiểm tra 600s (10 phút) timeout của các Lora Nodes khi Gateway vẫn hoạt động
-            node1_last = state.get("node1_last_change_time")
-            node2_last = state.get("node2_last_change_time")
-
-            node1_timeout = (time.time() - node1_last) > 600 if node1_last else False
-            node2_timeout = (time.time() - node2_last) > 600 if node2_last else False
-
-            if node1_timeout and node2_timeout:
-                n1_changed = state.get("node1_status") != "OFFLINE"
-                n2_changed = state.get("node2_status") != "OFFLINE"
-                if n1_changed or n2_changed:
-                    state["node1_status"] = "OFFLINE"
-                    state["node2_status"] = "OFFLINE"
-                    if "notifications" not in state: state["notifications"] = []
-                    text = "⚠️ Node 1 và Node 2 mất kết nối đồng thời"
-                    if not state["notifications"] or state["notifications"][0]["text"] != text:
-                        state["notifications"].insert(0, {
-                            "time": datetime.now().strftime("%H:%M:%S"),
-                            "text": text
-                        })
+            # Node status: single source of truth = newest sample in MongoDB
+            # (telemetry_health.compute_node_status). Throttled; no RAM-based 600s timeout.
+            try:
+                from service.telemetry_health import refresh_selected_farm_status
+                # Mongo reads run in a worker thread: never block the event loop (/healthz).
+                for node_no, old, new in await run.io_bound(refresh_selected_farm_status, state):
+                    if new in ("OFFLINE", "STALE"):
+                        if "notifications" not in state: state["notifications"] = []
+                        text = f"Node cảm biến {node_no}: {new} (mẫu mới nhất trong MongoDB đã cũ)"
+                        if not state["notifications"] or state["notifications"][0]["text"] != text:
+                            state["notifications"].insert(0, {"time": datetime.now().strftime("%H:%M:%S"), "text": text})
                     state["_update_counter"] = state.get("_update_counter", 0) + 1
-            else:
-                for k in ["node1", "node2"]:
-                    node_status_key = f"{k}_status"
-                    node_last = node1_last if k == "node1" else node2_last
-                    is_timeout = (time.time() - node_last) > 600 if node_last else False
-                    if is_timeout:
-                        if state.get(node_status_key) != "OFFLINE":
-                            state[node_status_key] = "OFFLINE"
-                            if "notifications" not in state: state["notifications"] = []
-                            node_label = "Node Cảm Biến 1" if k == "node1" else "Node Cảm Biến 2"
-                            text = f"⚠️ {node_label} mất kết nối hoặc dữ liệu bị đóng băng (Pin yếu)"
-                            if not state["notifications"] or state["notifications"][0]["text"] != text:
-                                state["notifications"].insert(0, {
-                                    "time": datetime.now().strftime("%H:%M:%S"),
-                                    "text": text
-                                })
-                            state["_update_counter"] = state.get("_update_counter", 0) + 1
+            except Exception:
+                pass
 
         current_counter = state.get("_update_counter", 0)
-        
-        if current_counter != check_ui_update.last_counter:
-            # Lưu lại trạng thái trước khi refresh để tính toán xu hướng
-            for k in ["node1", "node2"]:
-                for field in ["air_temp", "air_hum", "soil_temp", "soil_hum"]:
-                    key = f"{k}_{field}"
-                    prev_key = f"{key}_prev"
-                    if key in state:
-                        if prev_key not in state:
-                            state[prev_key] = state[key]
-                        elif state[key] != state[prev_key]:
-                            state[f"{key}_old"] = state[prev_key]
-                            state[prev_key] = state[key]
-
+        if current_counter != check_ui_update.__dict__.get("last_counter", 0):
             check_ui_update.last_counter = current_counter
-            render_content_area.refresh()
-            client_id = ui.context.client.id
+            # Chỉ phần chữ và số liệu vẽ lại theo nhịp này; biểu đồ có nhịp riêng (render_*_slow).
             if client_id in client_refreshes:
                 for refresh_func in client_refreshes[client_id]:
                     try:
                         refresh_func()
-                    except Exception as e:
+                    except Exception:
                         pass
+        await load_fleet()
+        loaded = data["fleet"] or {}
+        signature = (loaded.get("read_at"), loaded.get("stale"), loaded.get("error"))
+        if signature != seen["sig"]:
+            seen["sig"] = signature
+            refresh_live()
+            render_fleet_signals.refresh()  # bảng nhiệt và biểu đồ tuổi mẫu dùng cùng lần đọc này
 
-    # Khởi tạo các timer
-    t1 = ui.timer(0.5, fetch_weather, once=True)
-    t2 = ui.timer(3600.0, fetch_weather)
-    t3 = ui.timer(2.0, check_ui_update)
-    ui.context.client.on_disconnect(lambda: (t1.deactivate(), t2.deactivate(), t3.deactivate()))
+    async def first_load() -> None:
+        await load_fleet()
+        refresh_live()
+        render_fleet_signals.refresh()
+        render_fleet_events.refresh()  # biểu đồ tuổi mẫu chỉ cần dữ liệu farm, không đợi sự cố
+        await slow_then_refresh()
 
-    ui.add_head_html(f"<style>{CUSTOM_CSS}</style>")
+    async def slow_tick() -> None:
+        await slow_then_refresh()
+
+    t_first = ui.timer(0.05, first_load, once=True)
+    t_slow = ui.timer(20.0, slow_tick)
+    t_live = ui.timer(2.0, check_ui_update)
+
+    def cleanup() -> None:
+        for timer in (t_first, t_slow, t_live):
+            timer.deactivate()
+        client_refreshes.pop(client_id, None)
+
+    client.on_disconnect(cleanup)
+
+    ui.add_head_html(f"<style>{CUSTOM_CSS}{HOME_CSS}</style>")
     sidebar(active="Home")
 
     with ui.element("div").classes("main-content"):
 
         # Gọi Topbar dùng chung
-        global_topbar("Smart Monitoring", "📊")
+        global_topbar("Nhà màng · Điều hành", "", show_farm_selector=False)
 
         with ui.element("div").classes("content-area"):
-            with ui.element("div").style("display:flex;flex-direction:column;gap:20px;width:100%"):
-                # (Đã di chuyển fetch_weather lên đầu)
+            with ui.element("div").classes("sm-home"):
 
+                # Tiêu đề, thanh farm, dải trạng thái và số mới nhất: làm mới khi có lần đọc mới.
                 @ui.refreshable
                 def render_content_area():
-                        selected = state.get("selected_farm", "Greenhouse A")
-                        
-                        # Nếu không phải Greenhouse A → hiện overlay "Chưa có dữ liệu"
-                        if selected != "Greenhouse A":
-                            with ui.element("div").style(
-                                "display:flex;flex-direction:column;align-items:center;justify-content:center;"
-                                "min-height:400px;background:white;border-radius:16px;border:1px solid #e2e8f0;"
-                                "padding:60px 40px;text-align:center;width:100%"
-                            ):
-                                ui.label("📡").style("font-size:64px;margin-bottom:20px;opacity:0.4")
-                                ui.label(f"{selected}").style(
-                                    "font-size:22px;font-weight:800;color:#1a1a2e;margin-bottom:8px"
-                                )
-                                ui.label("Chưa có dữ liệu cảm biến").style(
-                                    "font-size:16px;font-weight:600;color:#94a3b8;margin-bottom:16px"
-                                )
-                                with ui.element("div").style(
-                                    "background:#f8fafc;border-radius:12px;padding:16px 24px;"
-                                    "border:1px dashed #e2e8f0;max-width:420px"
-                                ):
-                                    ui.label(
-                                        "Hệ thống đang chờ kết nối Gateway cho farm này. "
-                                        "Hiện tại chỉ Greenhouse A đang hoạt động và có dữ liệu MQTT."
-                                    ).style("font-size:13px;color:#64748b;line-height:1.6")
-                            return
-                        
-                        # === Greenhouse A — Hiện dữ liệu thật ===
-                        farm_status_header()
-                        
-                        with ui.element("div").classes("main-grid"):
-                            with ui.column().style("gap:10px"):
-                                ui.label("📡  CẢM BIẾN NODE 1").classes("section-header").style("color:#20bf6b;margin-bottom:0")
-                                node_card("node1", "Node 1")
-                            with ui.column().style("gap:10px"):
-                                ui.label("📡  CẢM BIẾN NODE 2").classes("section-header").style("color:#20bf6b;margin-bottom:0")
-                                node_card("node2", "Node 2")
-                            with ui.column().style("gap:10px"):
-                                ui.label("⚡  LƯU LƯỢNG").classes("section-header").style("color:#4361ee;margin-bottom:0")
-                                flow_meter_card()
-                            with ui.column().style("gap:10px"):
-                                ui.label("⚡  CẢM BIẾN EC").classes("section-header").style("color:#7c3aed;margin-bottom:0")
-                                ec_card()
-                            with ui.column().style("gap:10px"):
-                                ui.label("🧪  CẢM BIẾN pH").classes("section-header").style("color:#10b981;margin-bottom:0")
-                                ph_card()
-                            with ui.column().style("gap:10px"):
-                                ui.label("☁️  THỜI TIẾT").classes("section-header").style("color:#f77f00;margin-bottom:0")
-                                weather_card(on_refresh=fetch_weather)
-
-                        # Row 2: AI Analysis
-                        with ui.element("div").classes("w-full").style("margin-top:20px"):
-                            with ui.column().classes("w-full").style("gap:10px"):
-                                ui.label("🤖  AI ANALYSIS").classes("section-header").style("color:#7c3aed;margin-bottom:0")
-                                ai_analysis_card()
+                    loaded = data["fleet"]
+                    if not farm_keys:
+                        page_header("Chưa có nhà màng nào để xem", "Tài khoản này chưa được cấp quyền xem nhà màng.")
+                        state_panel("empty", "Tài khoản chưa được cấp nhà màng",
+                                    "Nhờ quản trị viên cấp quyền farm trong trang quản lý người dùng.")
+                        return
+                    if loaded is None:
+                        page_header("Đang đọc dữ liệu nhà màng", "Đọc từ MongoDB.")
+                        state_panel("loading", "Đang đọc dữ liệu từ MongoDB", "Lần đọc đầu tiên có thể mất vài giây.")
+                        return
+                    if loaded.get("value") is None:
+                        page_header("Không đọc được dữ liệu nhà màng", "Không kết nối được MongoDB.")
+                        state_panel("error", "Không đọc được MongoDB", f"{loaded.get('error')}. Kiểm tra kết nối rồi thử lại.",
+                                    action_label="Thử lại", on_action=retry_all)
+                        return
+                    cds = cards()
+                    card = current_card()
+                    read_text = f"Đọc từ MongoDB lúc {fmt_time(loaded.get('read_at'), with_date=False)}"
+                    if card is None:
+                        slot = page_header(fleet.fleet_headline(cds), read_text)
+                    else:
+                        slot = page_header(f"{card['label']}: {fleet.LEVEL_TEXT[card['level']].lower()}", read_text)
+                        with slot:
+                            status_chip(card["level"], fleet.LEVEL_TEXT[card["level"]])
+                    fleet.stale_banner(loaded)
+                    farm_tabs(fleet.tab_levels(cds), view["farm"], select_farm)
+                    if card is not None:
+                        fleet.render_farm_strip(card, _farm_shortcuts(card["farm_key"], can_open), ui.navigate.to)
+                        fleet.render_farm_stats(card, data["extra"])
 
                 render_content_area()
-            
-            # (Đã di chuyển check_ui_update lên đầu)
+
+                @ui.refreshable
+                def render_fleet_signals():
+                    loaded = data["fleet"]
+                    if view["farm"] is not None or not loaded or loaded.get("value") is None or not cards():
+                        return
+                    # Hàng 1: năm số tổng. Hàng 2: bảng tín hiệu rộng cạnh khối Cần chú ý.
+                    fleet.render_fleet_kpis(cards(), data["events"])
+                    with ui.element("div").classes("sm-split"):
+                        fleet.render_signal_matrix(cards(), loaded.get("read_at"), select_farm)
+                        fleet.render_attention(cards(), loaded.get("read_at"), select_farm, view["more"], toggle_more)
+
+                render_fleet_signals()
+
+                @ui.refreshable
+                def render_fleet_lines():
+                    if view["farm"] is not None or not cards():
+                        return
+                    fleet.render_fleet_lines(data["lines"], view["hours"], cards(), set_hours, retry_slow)
+
+                render_fleet_lines()
+
+                @ui.refreshable
+                def render_fleet_events():
+                    if view["farm"] is not None or not cards():
+                        return
+                    labels = {c["farm_key"]: c["label"] for c in cards()}
+                    # Hàng 3: lưới biểu đồ cùng chiều cao; dưới cùng là hai danh sách đã gộp dòng trùng.
+                    with ui.element("div").classes("sm-cols-2"):
+                        fleet.render_age_chart(cards(), data["fleet"].get("read_at"))
+                        fleet.render_incident_timeline(data["events"], cards(), can_open, open_incident, retry_slow)
+                    with ui.element("div").classes("sm-split-wide"):
+                        fleet.render_review_queue(data["events"], labels, can_open, open_incident, view["more"], toggle_more)
+                        fleet.render_notices(data["fleet"]["value"], None, view["more"], toggle_more)
+
+                render_fleet_events()
+
+                @ui.refreshable
+                def render_farm_charts():
+                    if view["farm"] is None or current_card() is None:
+                        return
+                    fleet.render_farm_charts(data["series"], view["hours"], set_hours, retry_slow)
+
+                render_farm_charts()
+
+                @ui.refreshable
+                def render_farm_devices():
+                    card = current_card()
+                    if view["farm"] is None or card is None:
+                        return
+                    fleet.render_farm_devices(card, data["extra"], state, retry_slow)
+
+                render_farm_devices()
+
+                @ui.refreshable
+                def render_farm_extra():
+                    card = current_card()
+                    if view["farm"] is None or card is None:
+                        return
+                    with ui.element("div").classes("sm-cols-2"):
+                        with ui.element("div").classes("sm-col"):
+                            fleet.render_farm_incidents(card, can_open, open_incident)
+                            fleet.render_ai_suggestion(data["extra"])
+                            fleet.render_notices(data["fleet"]["value"], card["farm_key"], view["more"], toggle_more)
+                        fleet.render_weather(data["weather"], lambda: background_tasks.create(_weather_retry()))
+
+                render_farm_extra()
+
+    async def _weather_retry() -> None:
+        fleet.invalidate()
+        await fetch_weather()
+        render_farm_extra.refresh()
+
+
+def _farm_shortcuts(farm_key: str, can_open: bool) -> list[tuple[str, str]]:
+    items = [("Bơm", "/plc"), ("Biến tần", "/inverter"), ("Lịch tưới", "/schedule")]
+    if can_open:
+        items.append(("Sự cố của farm này", f"/incident?farm={farm_key}"))
+    items.append(("Mùa vụ", "/mongodb-lab"))
+    return items

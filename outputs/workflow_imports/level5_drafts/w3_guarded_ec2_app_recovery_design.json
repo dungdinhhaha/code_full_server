@@ -1,0 +1,55 @@
+{
+  "format": "smiot.workflow.level5.design.v1",
+  "case": "W3",
+  "title": "Guarded EC2 app recovery",
+  "live_workflow_id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+  "handle": "smiot-guarded-ec2-recovery",
+  "live_state": "published; adopt existing; do not import duplicate",
+  "current_evidence": "AWS connection test and safe DryRun were previously confirmed; actual service-down start branch remains unverified.",
+  "flow": [
+    {
+      "stage": "Detect",
+      "owner": "Datadog monitor",
+      "evidence": "service inactive monitor event correlated to workflow run"
+    },
+    {
+      "stage": "Investigate",
+      "owner": "Workflow",
+      "evidence": [
+        "confirm app service is inactive",
+        "confirm MongoDB and MQTT healthy",
+        "check disk guard and deduplication lock"
+      ],
+      "on_missing": "stop and notify operator"
+    },
+    {
+      "stage": "Act",
+      "owner": "AWS SSM guarded document",
+      "action": "start smiot.service only; never reboot EC2 or restart MongoDB/MQTT"
+    },
+    {
+      "stage": "Verify",
+      "owner": "Application/Workflow",
+      "evidence": [
+        "local HTTP health succeeds",
+        "new MongoDB telemetry sample is persisted",
+        "service remains healthy through verification window"
+      ],
+      "on_failure": "keep incident open; do not claim recovered"
+    },
+    {
+      "stage": "Notify",
+      "owner": "Datadog Action Connection -> SMIOT app",
+      "event_key": "workflow run ID",
+      "status": "blocked until authenticated HTTP Action Connection exists and app endpoint is deployed"
+    }
+  ],
+  "level5_gates": [
+    "export canonical live workflow JSON before editing",
+    "add guarded precheck and post-action verification branches",
+    "exercise active-service skip and controlled inactive-service recovery",
+    "verify HTTP plus fresh MongoDB sample",
+    "deliver idempotent app notification and read it back"
+  ],
+  "safety": "A successful SSM invocation alone is not proof of application recovery."
+}

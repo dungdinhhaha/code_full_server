@@ -1,0 +1,163 @@
+{
+  "description": "Incident signals and recovery evidence. A metric returning to normal is not, by itself, proof that an incident is resolved; verify a fresh persisted sample and the guarded action record.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "notify_list": [],
+  "restricted_roles": [],
+  "tags": [
+    "team:smiot"
+  ],
+  "template_variables": [
+    {
+      "name": "farm",
+      "prefix": "farm",
+      "available_values": [
+        "greenhouse_a",
+        "greenhouse_b",
+        "greenhouse_c",
+        "greenhouse_d",
+        "greenhouse_e",
+        "greenhouse_f",
+        "greenhouse_g",
+        "greenhouse_h",
+        "greenhouse_i",
+        "greenhouse_j"
+      ],
+      "defaults": [
+        "*"
+      ]
+    }
+  ],
+  "title": "SMIOT | Incident & Recovery",
+  "widgets": [
+    {
+      "definition": {
+        "type": "note",
+        "content": "## Follow one incident\nAlert → matching farm/node telemetry → correlated application log and trace → guarded workflow action → fresh persisted sample → recovery confirmation. Keep `incident_id` in logs, traces and incident records; do not use it as a metric tag.",
+        "background_color": "#eaf3ff",
+        "font_size": "16",
+        "text_align": "left",
+        "vertical_align": "top",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left"
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "UI and data-source status mismatch",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.status_mismatch{$farm} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Flatline detector by farm and node",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sensor_flatline{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Telemetry freshness during recovery (seconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sample_age_seconds{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Application health signal",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "min:smiot.external.app_up{project:smiot} by {host}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MongoDB and MQTT dependency signals",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "min:smiot.dependency.mongo.up{project:smiot} by {service}"
+              }
+            ]
+          },
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query2",
+                "query": "min:smiot.dependency.mqtt.up{project:smiot} by {service}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "description": "Application, EC2, MongoDB and AI view using metrics verified in the current Datadog organization. Memory remains labeled as a fraction to avoid misrepresenting 0–1 values as percent.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "notify_list": [],
+  "restricted_roles": [],
+  "tags": [
+    "team:smiot"
+  ],
+  "template_variables": [
+    {
+      "name": "host",
+      "prefix": "host",
+      "available_values": [
+        "i-00bf2d3591d3ee0a2"
+      ],
+      "defaults": [
+        "i-00bf2d3591d3ee0a2"
+      ]
+    }
+  ],
+  "title": "SMIOT | App, EC2, MongoDB & AI",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "EC2 CPU user (%)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:system.cpu.user{$host}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "EC2 usable memory fraction (0–1)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:system.mem.pct_usable{$host}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "SMIOT service active state",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "min:systemd.unit.active{$host,unit:smiot.service}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MongoDB query throughput (queries/sec)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "sum:mongodb.queries.count{db:smiot}.as_rate()"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MongoDB query execution time (ns per interval)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "sum:mongodb.queries.time{db:smiot}.as_count()"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "AI request latency (p95, seconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "p95:trace.smiot.ai.ask{service:smiot-smart-farm}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "note",
+        "content": "Cloud Cost Management widgets are intentionally omitted until the AWS cost source is connected and its metrics are visible in this Datadog organization. AI error-rate widgets are also omitted until a verified error metric is ingested.",
+        "background_color": "#fff4df",
+        "font_size": "14",
+        "text_align": "left",
+        "vertical_align": "top",
+        "show_tick": false,
+        "tick_pos": "50%",
+        "tick_edge": "left"
+      }
+    }
+  ]
+}

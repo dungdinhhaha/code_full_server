@@ -1,0 +1,78 @@
+{
+  "attributes": {
+    "createdAt": "2026-11-04T09:28:09.675Z",
+    "description": "Restart smiot.service only when the local health check fails; verify HTTP recovery and enforce a cooldown.",
+    "name": "SMIOT EC2 Guarded Web Recovery",
+    "published": true,
+    "runAsUserMode": "owner",
+    "sensitivePrivileges": true,
+    "spec": {
+      "connectionEnvs": [
+        {
+          "connections": [
+            {
+              "connectionId": "connection:execgroup_ddagent:i-00bf2d3591d3ee0a2",
+              "label": "INTEGRATION_SCRIPT"
+            }
+          ],
+          "env": "default"
+        }
+      ],
+      "handle": "Dũng-Nov-04-2026-1601",
+      "steps": [
+        {
+          "actionId": "com.datadoghq.script.runPredefinedScript",
+          "connectionLabel": "INTEGRATION_SCRIPT",
+          "display": {
+            "bounds": {
+              "x": -2.842170943040401e-14,
+              "y": -2.4868995751603507e-14
+            }
+          },
+          "name": "Run_Predefined_Script",
+          "parameters": [
+            {
+              "name": "scriptName",
+              "value": "recover-smiot-web"
+            },
+            {
+              "name": "timeout",
+              "value": 300
+            }
+          ]
+        }
+      ],
+      "triggers": [
+        {
+          "monitorTrigger": {
+            "rateLimit": {
+              "count": 1,
+              "interval": "60s"
+            }
+          },
+          "startStepNames": [
+            "Run_Predefined_Script"
+          ]
+        }
+      ]
+    },
+    "tags": [],
+    "updatedAt": "2026-11-04T10:34:50.821Z"
+  },
+  "id": "b83453ff-e122-4148-9519-e698f2effa7f",
+  "relationships": {
+    "creator": {
+      "data": {
+        "id": "c0e58282-2993-4eb8-beac-cfbee5a118d7",
+        "type": "users"
+      }
+    },
+    "owner": {
+      "data": {
+        "id": "c0e58282-2993-4eb8-beac-cfbee5a118d7",
+        "type": "users"
+      }
+    }
+  },
+  "type": "workflows"
+}

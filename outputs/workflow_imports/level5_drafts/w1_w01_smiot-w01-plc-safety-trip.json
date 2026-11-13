@@ -1,0 +1,306 @@
+{
+  "description": "Read-only evidence review for a virtual PLC safety trip. The local PLC interlock remains the immediate safety authority. Missing telemetry is a fail-closed branch; no Datadog actuator command. Trip and ACK gauges are aggregate signals; do not treat them as a same-command or incident match without Mongo evidence.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "env:demo",
+    "evidence:required",
+    "maturity:level5-design",
+    "plan:workflow-01",
+    "project:smiot",
+    "safety:fail-closed",
+    "safety:read-only",
+    "service:smiot-smart-farm"
+  ],
+  "name": "SMIOT | W1 | Verify PLC safety trip evidence",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "verify_evidence_available"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "safety_trip",
+                "query": "sum:smiot.virtual_plc.safety_trip{event:safety_trip}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "safety_ack",
+                "query": "sum:smiot.virtual_plc.safety_ack{event:safety_ack}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "safety_trip"
+              },
+              {
+                "formula": "safety_ack"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "name": "verify_evidence_available",
+        "actionId": "com.datadoghq.core.if",
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 216
+          }
+        },
+        "parameters": [
+          {
+            "name": "joinOperator",
+            "value": "and"
+          },
+          {
+            "name": "conditions",
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"safety_trip\", \"safety_ack\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                "rightValue": true
+              }
+            ]
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "true",
+            "nextStepName": "classify_evidence"
+          },
+          {
+            "branchName": "false",
+            "nextStepName": "escalate_missing_evidence"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 384
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const trip=Number(c.find(x=>x.name===\"safety_trip\")?.values?.[0]); const ack=Number(c.find(x=>x.name===\"safety_ack\")?.values?.[0]); return Number.isFinite(trip) && Number.isFinite(ack) && trip>0 && ack>0; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W1 | TRIP_AND_ACK_AGGREGATE_SIGNALS_PRESENT | Aggregate trip and safe-stop ACK metrics are both non-zero, but the workflow cannot correlate them to one command or incident. Match the exact scenario_run_id/command_id in Mongo incident_telemetry_evidence and action_ledger before confirming this case. No actuator command was sent by Datadog; this is not recovery proof.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_smiot_app"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W1 | TRIP_OR_ACK_NOT_CONFIRMED | At least one aggregate trip/ACK signal is zero. Do not infer the local PLC state from this aggregate query. Check exact command_id, incident evidence and local interlock; no Datadog actuator action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_smiot_app"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 552,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W1 | Verify PLC safety trip evidence | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo",
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_smiot_app"
+          }
+        ]
+      },
+      {
+        "name": "escalate_missing_evidence",
+        "actionId": "com.datadoghq.core.echo",
+        "display": {
+          "bounds": {
+            "x": 384,
+            "y": 552
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "value": "W1 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+          }
+        ],
+        "outboundEdges": [
+          {
+            "branchName": "main",
+            "nextStepName": "notify_smiot_app"
+          }
+        ]
+      },
+      {
+        "name": "notify_smiot_app",
+        "actionId": "com.datadoghq.http.request",
+        "connectionLabel": "SMIOT_APP_HTTP",
+        "parameters": [
+          {
+            "name": "verb",
+            "value": "POST"
+          },
+          {
+            "name": "url",
+            "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+          },
+          {
+            "name": "requestHeaders",
+            "value": [
+              {
+                "key": "Content-Type",
+                "value": [
+                  "application/json"
+                ]
+              }
+            ]
+          },
+          {
+            "name": "body",
+            "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"Aggregate PLC trip/ACK signals are candidates only; match exact scenario_run_id and command_id in Mongo before confirming incident. Workflow is read-only and does not claim recovery.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+          }
+        ],
+        "readinessGate": {
+          "thresholdType": "ANY"
+        }
+      }
+    ],
+    "handle": "smiot-w01-plc-safety-trip",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      },
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "apiTrigger": {}
+      }
+    ],
+    "connectionEnvs": [
+      {
+        "env": "default",
+        "connections": [
+          {
+            "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+            "label": "SMIOT_APP_HTTP"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "additionalProperties": {
+    "created_at": 1793659155000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-06T03:15:47+00:00"
+  },
+  "created": "2026-11-02T22:39:15.848Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245830
+    },
+    "email": "tiendung54.be@gmail.com",
+    "handle": "tiendung54.be@gmail.com",
+    "name": "Dũng Tiến"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339990226,
+  "matchingDowntimes": [],
+  "message": "{{#is_alert}}MongoDB dependency check is unhealthy. Inspect the correlated app logs and pymongo spans. Do not restart or delete data automatically.{{/is_alert}}\n\n{{#is_no_data}}No Mongo health signal. Check app and watchdog before attributing failure to MongoDB.{{/is_no_data}}\n\n{{#is_recovery}}MongoDB health signal recovered. Verify a new telemetry document and its timestamp in the Time Series collection.{{/is_recovery}}",
+  "modified": "2026-11-03T17:09:21.175Z",
+  "multi": false,
+  "name": "SMIOT | MongoDB dependency unhealthy",
+  "options": {
+    "evaluationDelay": 60,
+    "includeTags": true,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "onMissingData": "show_and_notify_no_data",
+    "requireFullWindow": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 1
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "min(last_5m):min:smiot.dependency.mongo.up{*} < 1",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "*": {
+        "lastNodataTs": 1793934766,
+        "lastNotifiedTs": 1793934886,
+        "lastResolvedTs": 1793934886,
+        "lastTriggeredTs": 1793934766,
+        "name": "*",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "service:smiot-smart-farm",
+    "env:demo",
+    "component:mongodb",
+    "source:app_healthcheck",
+    "managed_by:codex"
+  ],
+  "type": "query alert"
+}

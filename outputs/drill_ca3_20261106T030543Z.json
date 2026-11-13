@@ -1,0 +1,98 @@
+{
+    "schema":  "smiot.drill.ca3.v1",
+    "drill_id":  "DRILL-CA3-20261106T030543Z",
+    "data_label":  "synthetic_demo_telemetry",
+    "mode":  "dry_run",
+    "instance_id":  "i-00bf2d3591d3ee0a2",
+    "region":  "ap-southeast-2",
+    "service":  "smiot.service",
+    "started":  {
+                    "utc":  "2026-11-06T03:05:43.424Z",
+                    "ict":  "2026-11-06T10:05:43.424+07:00"
+                },
+    "attestations":  {
+                         "monitors_ok":  false,
+                         "mute_or_annotation_noted":  false,
+                         "source":  "operator_flag_not_verified_by_script"
+                     },
+    "steps":  [
+                  {
+                      "name":  "precheck.aws_identity",
+                      "status":  "pass",
+                      "detail":  "account matches expected",
+                      "at":  "2026-11-06T03:05:46.091Z"
+                  },
+                  {
+                      "name":  "precheck.ssm_online",
+                      "status":  "pass",
+                      "detail":  "PingStatus=Online",
+                      "at":  "2026-11-06T03:05:47.677Z"
+                  },
+                  {
+                      "name":  "precheck.snapshot_fresh",
+                      "status":  "pass",
+                      "detail":  "age_hours=6.2",
+                      "at":  "2026-11-06T03:05:51.617Z"
+                  },
+                  {
+                      "name":  "precheck.app_and_dependencies",
+                      "status":  "pass",
+                      "detail":  "unit=active mongod=active mosquitto=active http=200",
+                      "at":  "2026-11-06T03:05:57.278Z"
+                  },
+                  {
+                      "name":  "precheck.fresh_mongo_sample",
+                      "status":  "pass",
+                      "detail":  "sample_age_sec=28.2",
+                      "at":  "2026-11-06T03:05:57.278Z"
+                  },
+                  {
+                      "name":  "precheck.monitor_status",
+                      "status":  "not_attested",
+                      "detail":  "Datadog monitor state is NOT read by this script; operator must confirm monitors are OK.",
+                      "at":  "2026-11-06T03:05:57.278Z"
+                  },
+                  {
+                      "name":  "stop_service",
+                      "status":  "skipped",
+                      "detail":  "dry run (no -Confirm, or -DryRun given)",
+                      "at":  "2026-11-06T03:05:57.278Z"
+                  }
+              ],
+    "observations":  [
+
+                     ],
+    "marks":  {
+
+              },
+    "datadog_fields_to_fill_manually":  {
+                                            "monitor_alert_time_utc":  null,
+                                            "workflow_execution_id":  null,
+                                            "bits_investigation_id":  null
+                                        },
+    "result":  "dry_run_completed",
+    "notes":  [
+                  "Script does not read Datadog; fill datadog_fields_to_fill_manually from the UI.",
+                  "No secret, URI or key is read or stored."
+              ],
+    "snapshot":  {
+                     "volume_id":  "vol-0fe7f6c8bac706a78",
+                     "latest_completed_start":  "2026-11-05T20:54:22.466000+00:00",
+                     "age_hours":  6.2,
+                     "max_age_hours":  24
+                 },
+    "baseline_observation":  {
+                                 "at":  "2026-11-06T03:05:57.264Z",
+                                 "ssm_status":  "Success",
+                                 "unit":  "active",
+                                 "mongod":  "active",
+                                 "mosquitto":  "active",
+                                 "http":  "200",
+                                 "sample_age_sec":  28.2,
+                                 "latest_sample_epoch_ms":  1793934326207
+                             },
+    "finished":  {
+                     "utc":  "2026-11-06T03:05:57.294Z",
+                     "ict":  "2026-11-06T10:05:57.294+07:00"
+                 }
+}

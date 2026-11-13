@@ -12,3 +12,4 @@ pymongo>=4.0,<4.18
 ddtrace>=4.16.1,<5.0
 boto3>=1.34,<2
 qrcode[pil]>=8.0,<9
+lzstring>=1.0,<2

@@ -89,27 +89,17 @@
             const [lockCooldown, setLockCooldown] = useState(0); // Cooldown timer (30s)
             const [permissions, setPermissions] = useState([]);
 
-            // Initialize history
-            useEffect(() => {
-                const initHistory = Array.from({length: 15}, (_, i) => {
-                    const time = new Date(Date.now() - (15 - i) * 2000);
-                    return {
-                        time: time.toLocaleTimeString([], {minute:'2-digit', second:'2-digit'}),
-                        actual: 0,
-                        set: 1.5
-                    };
-                });
-                setData(prev => ({...prev, pressure_history: initHistory}));
-            }, []);
+            // Lịch sử áp suất chỉ gồm các bản tin thật của thiết bị ảo nhận được từ lúc mở trang.
+            // Không khởi tạo điểm nào trước bản tin đầu tiên.
 
             // Socket push method (được gọi từ NiceGUI)
             useEffect(() => {
                 window.updateInverterData = (apiData) => {
                     setData(prev => {
                         const now = new Date();
-                        const timeStr = now.toLocaleTimeString([], {minute:'2-digit', second:'2-digit'});
-                        
-                        const newHistory = [...prev.pressure_history.slice(1), {
+                        const timeStr = now.toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Ho_Chi_Minh'});
+
+                        const newHistory = [...prev.pressure_history.slice(-59), {
                             time: timeStr,
                             actual: apiData.actual_pressure,
                             set: apiData.set_pressure
@@ -428,7 +418,7 @@
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
                                         <h2 className="text-xl font-bold text-slate-800 mb-1">Biểu đồ Áp suất Hệ thống</h2>
-                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Đơn vị: BAR (Real-time)</p>
+                                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Đơn vị: BAR · theo bản tin thiết bị ảo, từ lúc mở trang</p>
                                     </div>
                                     <div className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${data.plc_q7 === 1 ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
                                         {data.plc_q7 === 1 ? 'Bơm đang Chạy' : 'Bơm đang Tắt'}
@@ -449,6 +439,9 @@
 
                                 {/* Chart Container */}
                                 <div className="flex-1 w-full min-h-[200px]">
+                                    {data.pressure_history.length === 0 && (
+                                        <p className="text-sm text-slate-500 px-2">Chưa có bản tin biến tần ảo kể từ khi mở trang.</p>
+                                    )}
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={data.pressure_history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                             <defs>

@@ -1,0 +1,24 @@
+# Template only. Install as /etc/systemd/system/velxio-bridge.service.
+# Velxio is synthetic/demo-only and remains isolated from the Wokwi bridge.
+[Unit]
+Description=SMIOT Velxio synthetic device bridge
+After=network-online.target mosquitto.service smiot.service
+Wants=network-online.target
+ConditionPathExists=/opt/smiot/scripts/velxio_mqtt_bridge.py
+
+[Service]
+Type=simple
+User=smiot
+Group=smiot
+WorkingDirectory=/opt/smiot
+EnvironmentFile=/etc/smiot/velxio.env
+ExecStart=/opt/smiot/.venv/bin/python -X utf8 /opt/smiot/scripts/velxio_mqtt_bridge.py --channel ${VELXIO_CHANNEL}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/opt/smiot/logs /opt/smiot/.nicegui
+
+[Install]
+WantedBy=multi-user.target

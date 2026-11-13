@@ -69,6 +69,8 @@ def main() -> int:
         "farm_key": FARM_KEY,
         "lot_id": LOT_ID,
         "crop_name": "Dưa lưới",
+        "crop_key": "melon",
+        "cultivar": None,
         "demo_scenario": "harvest_window_v1",
         "fruit_set_at": FRUIT_SET_AT,
         "fruit_set_basis": "explicit_demo_fixture",

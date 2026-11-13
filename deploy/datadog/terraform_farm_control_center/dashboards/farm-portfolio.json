@@ -1,0 +1,160 @@
+{
+  "description": "10-farm operations overview. Farm scope is selectable; telemetry is tagged as SMIOT demo/simulated source data.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "notify_list": [],
+  "restricted_roles": [],
+  "tags": [
+    "team:smiot"
+  ],
+  "template_variables": [
+    {
+      "name": "farm",
+      "prefix": "farm",
+      "available_values": [
+        "greenhouse_a",
+        "greenhouse_b",
+        "greenhouse_c",
+        "greenhouse_d",
+        "greenhouse_e",
+        "greenhouse_f",
+        "greenhouse_g",
+        "greenhouse_h",
+        "greenhouse_i",
+        "greenhouse_j"
+      ],
+      "defaults": [
+        "*"
+      ]
+    }
+  ],
+  "title": "SMIOT | 10-Farm Portfolio",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Soil humidity by farm and node",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.soil_humidity{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Freshness of latest sensor data (seconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sample_age_seconds{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Farm status mismatches",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.status_mismatch{$farm} by {farm}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Sensor flatline signals",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "bars",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "max:smiot.telemetry.sensor_flatline{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Air temperature by farm",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.air_temperature{$farm,source:smiot_demo_stream} by {farm}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Persisted telemetry samples per second",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "sum:smiot.telemetry.samples_persisted{$farm,source:smiot_demo_stream} by {farm}.as_rate()"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

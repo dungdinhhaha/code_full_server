@@ -1,0 +1,6 @@
+$ErrorActionPreference='Stop'
+$j=Join-Path $env:TEMP ('smiot-ledger-' + [guid]::NewGuid().ToString('N') + '.json')
+$py='import os,json; from dotenv import load_dotenv; load_dotenv("/etc/smiot/app.env"); from service.mongodb_store import collection; d=collection("action_ledger").find_one({"_id":"readback-57f69cee2b7043ff899157e2a70a6367"}); print(json.dumps(d,default=str))'
+$cmds=@('set -e','cd /opt/smiot','export PYTHONPATH=/opt/smiot',"/opt/smiot/.venv/bin/python -c '$py'")
+(@{commands=$cmds}|ConvertTo-Json -Compress)|Set-Content -Encoding ascii $j
+$id=(aws ssm send-command --profile aws-moi --region ap-southeast-2 --instance-ids i-00bf2d3591d3ee0a2 --document-name AWS-RunShellScript --parameters file://$j --comment 'SMIOT readback ledger check' --query Command.CommandId --output text).Trim(); do {Start-Sleep 3;$r=aws ssm get-command-invocation --profile aws-moi --region ap-southeast-2 --command-id $id --instance-id i-00bf2d3591d3ee0a2 --output json|ConvertFrom-Json;if($r.Status -in @('Success','Failed','Cancelled','TimedOut')){Write-Output $r.StandardOutputContent;if($r.Status -ne 'Success'){Write-Output $r.StandardErrorContent};break}}while($true); Remove-Item $j -Force -ErrorAction SilentlyContinue

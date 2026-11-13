@@ -1,0 +1,50 @@
+{
+  "additionalProperties": {
+    "created_at": 1793657040000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-02T22:04:09+00:00"
+  },
+  "created": "2026-11-02T22:04:00.993Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245831
+    },
+    "email": "support-user-prod@datadoghq.com",
+    "handle": "support-no-kp_8tnkfs1rc",
+    "name": "Datadog Support"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339978300,
+  "matchingDowntimes": [],
+  "message": "{{event.title}} detected on {{event.tags.service}}\n {{event.text}}",
+  "modified": "2026-11-02T22:04:00.993Z",
+  "multi": true,
+  "name": "Watchdog Anomaly: {{event.title}} for {{service}}",
+  "options": {
+    "enableLogsSample": false,
+    "groupbySimpleMonitor": false,
+    "includeTags": true,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "onMissingData": "default",
+    "silenced": {},
+    "thresholds": {
+      "critical": 0
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "events(\"source:watchdog (story_category:apm)\").rollup(\"count\").by(\"story_key\").last(\"30m\") > 0",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {}
+  },
+  "tags": [
+    "$service",
+    "$env",
+    "product:apm",
+    "monitor_pack:apm"
+  ],
+  "type": "event-v2 alert"
+}

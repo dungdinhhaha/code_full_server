@@ -1,0 +1,127 @@
+{
+  "data": {
+    "id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+    "type": "workflows",
+    "attributes": {
+      "name": "SMIOT | Guarded EC2 app recovery",
+      "description": "Starts only the SMIOT web application after the inactive-service monitor fires. SSM checks MongoDB, MQTT, disk, deduplication, HTTP health, and fresh MongoDB telemetry; it never restarts MongoDB or MQTT.",
+      "published": true,
+      "runAs": {
+        "type": "owner"
+      },
+      "sensitivePrivileges": false,
+      "tags": [
+        "env:demo",
+        "project:smiot",
+        "service:smiot-smart-farm"
+      ],
+      "spec": {
+        "triggers": [
+          {
+            "startStepNames": [
+              "Send_command"
+            ],
+            "monitorTrigger": {
+              "rateLimit": {
+                "count": 1,
+                "interval": "600s"
+              }
+            }
+          }
+        ],
+        "steps": [
+          {
+            "name": "Send_command",
+            "actionId": "com.datadoghq.aws.system_manager.sendCommand",
+            "connectionLabel": "INTEGRATION_AWS",
+            "parameters": [
+              {
+                "name": "region",
+                "value": "ap-southeast-2"
+              },
+              {
+                "name": "documentName",
+                "value": "SMIOT-GuardedStartApp"
+              },
+              {
+                "name": "instanceIds",
+                "value": [
+                  "i-00bf2d3591d3ee0a2"
+                ]
+              },
+              {
+                "name": "parameters",
+                "value": {
+                  "DryRun": [
+                    "false"
+                  ],
+                  "IncidentId": [
+                    "{{ InstanceId }}"
+                  ]
+                }
+              }
+            ],
+            "outboundEdges": [
+              {
+                "nextStepName": "notify_smiot_app",
+                "branchName": "main"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 192
+              }
+            }
+          },
+          {
+            "name": "notify_smiot_app",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W3 đã gửi yêu cầu SSM tới guard. Gửi lệnh thành công chưa chứng minh lệnh đã chạy xong hoặc ứng dụng đã phục hồi; trạng thái hiện là CHỜ XÁC MINH. Giữ sự cố mở và kiểm tra kết quả SSM cùng /healthz, MongoDB và telemetry mới trước khi đóng.\",\"category\":\"datadog\",\"severity\":\"warning\"}"
+              }
+            ]
+          }
+        ],
+        "handle": "smiot-guarded-ec2-recovery",
+        "connectionEnvs": [
+          {
+            "env": "default",
+            "connections": [
+              {
+                "connectionId": "9477b5cd-189f-442b-aa16-f2b76089efc8",
+                "label": "INTEGRATION_AWS"
+              },
+              {
+                "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                "label": "SMIOT_APP_HTTP"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+Không có screenshot_before.png: bản nháp được tạo trong phiên UI trước khi bắt đầu chụp bước này. Không dựng lại ảnh trước. Bản này là nhánh từ chối bảo thủ: chỉ Echo, không đọc Mongo trực tiếp và không có quyền khởi động lại dịch vụ.

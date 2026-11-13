@@ -1,0 +1,2 @@
+Chưa chạy. Lệnh theo kế hoạch: py -3.12 -X utf8 scripts/explain_before_after.py --incident-id <id>  (mặc định dry-run).
+Lý do chưa chạy: script bắt buộc --incident-id, mà id incident Ca 2 chỉ lấy được từ /incident, trang này yêu cầu đăng nhập. Không tự đoán id, không đọc file cấu hình kết nối DB. Chưa tạo file JSON dry-run.

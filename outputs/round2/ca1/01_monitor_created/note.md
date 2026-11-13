@@ -1,0 +1,1 @@
+Không có screenshot_before.png: việc tạo monitor đã hoàn tất trước khi thiết lập thư mục bằng chứng. Không tái tạo ảnh trước để tránh trình bày sai thời điểm. screenshot_after.png là trang trạng thái monitor thật.

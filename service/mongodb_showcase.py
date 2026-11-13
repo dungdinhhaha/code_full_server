@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
+from math import exp
 from time import perf_counter
 from typing import Any
 
@@ -14,6 +15,21 @@ MIN_COVERAGE = 0.80
 MAX_GAP_SECONDS = 3 * 60 * 60
 
 
+def vpd_kpa(air_temp_c: float, relative_humidity_pct: float) -> float | None:
+    """Return air VPD in kPa using Tetens; reject physically invalid inputs."""
+    try:
+        temperature = float(air_temp_c)
+        humidity = float(relative_humidity_pct)
+    except (TypeError, ValueError):
+        return None
+    if not (-80.0 < temperature <= 80.0 and 0.0 <= humidity <= 100.0):
+        return None
+    saturation_vapor_pressure = 0.6108 * exp(
+        17.27 * temperature / (temperature + 237.3)
+    )
+    return round(saturation_vapor_pressure * (1.0 - humidity / 100.0), 4)
+
+
 def harvest_pipeline(farm_key: str, start: datetime, end: datetime) -> list[dict[str, Any]]:
     """Aggregate raw sensor samples into daily coverage and heat context in MongoDB."""
     return [
@@ -22,6 +38,26 @@ def harvest_pipeline(farm_key: str, start: datetime, end: datetime) -> list[dict
             "timestamp": {"$gte": start, "$lt": end},
             "readings.air_temp": {"$type": "number"}, "meta.node_id": {"$type": "number"},
             "source.demo_seed_version": "smiot-demo-history-v2",
+        }},
+        {"$set": {
+            "vpd_kpa": {"$cond": [
+                {"$and": [
+                    {"$isNumber": "$readings.air_temp"},
+                    {"$isNumber": "$readings.air_hum"},
+                    {"$gt": ["$readings.air_temp", -80]},
+                    {"$lte": ["$readings.air_temp", 80]},
+                    {"$gte": ["$readings.air_hum", 0]},
+                    {"$lte": ["$readings.air_hum", 100]},
+                ]},
+                {"$multiply": [
+                    {"$multiply": [0.6108, {"$exp": {"$divide": [
+                        {"$multiply": [17.27, "$readings.air_temp"]},
+                        {"$add": ["$readings.air_temp", 237.3]},
+                    ]}}]},
+                    {"$subtract": [1, {"$divide": ["$readings.air_hum", 100]}]},
+                ]},
+                None,
+            ]},
         }},
         {"$setWindowFields": {
             "partitionBy": {"farm": "$meta.farm_key", "node": "$meta.node_id"},
@@ -38,6 +74,8 @@ def harvest_pipeline(farm_key: str, start: datetime, end: datetime) -> list[dict
             "samples": {"$sum": 1}, "first_sample": {"$min": "$timestamp"},
             "last_sample": {"$max": "$timestamp"}, "max_gap_seconds": {"$max": "$sample_gap_seconds"},
             "mean_air_temp_c": {"$avg": "$readings.air_temp"},
+            "mean_vpd_kpa": {"$avg": "$vpd_kpa"},
+            "vpd_samples": {"$sum": {"$cond": [{"$isNumber": "$vpd_kpa"}, 1, 0]}},
             "min_air_temp_c": {"$min": "$readings.air_temp"}, "max_air_temp_c": {"$max": "$readings.air_temp"},
             "synthetic_samples": {"$sum": {"$cond": [{"$eq": ["$source.synthetic", True]}, 1, 0]}},
         }},
@@ -76,7 +114,8 @@ def harvest_pipeline(farm_key: str, start: datetime, end: datetime) -> list[dict
                        "first_sample": 1, "last_sample": 1, "mean_air_temp_c": 1, "min_air_temp_c": 1,
                        "max_air_temp_c": 1, "coverage_pct": 1, "max_observed_gap_seconds": 1,
                        "day_complete": 1, "gdd_context": 1, "cumulative_gdd_context": 1,
-                       "rolling_7d_mean_temp_c": 1, "synthetic_samples": 1}},
+                       "rolling_7d_mean_temp_c": 1, "mean_vpd_kpa": 1,
+                       "vpd_samples": 1, "synthetic_samples": 1}},
         {"$sort": {"node_id": 1, "day": 1}},
     ]
 
@@ -96,6 +135,26 @@ def load_harvest_story(farm_key: str = "greenhouse_a", lot_id: str | None = None
     if not cycle:
         return {"farm_key": farm_key, "crop_cycle": None, "days": [], "nodes": [], "raw_count": 0,
                 "note": "Chưa có mốc ra hoa/thụ phấn được ghi cho nhà kính này; chưa thể tính cửa sổ thu hoạch."}
+
+    # Use an explicit recorded crop stage, never infer one from the forecast date.
+    current_stage = cycle.get("current_stage")
+    if not current_stage:
+        stage_event = collection("traceability_events").find_one(
+            {"farm_key": farm_key, "lot_id": cycle.get("lot_id"),
+             "event_type": "crop_stage_recorded"},
+            {"_id": 0, "stage_code": 1, "stage": 1},
+            sort=[("captured_at", -1)],
+        )
+        if stage_event:
+            current_stage = stage_event.get("stage_code") or stage_event.get("stage")
+    envelope = None
+    if current_stage:
+        from service.stage_envelopes import get_effective_stage_envelope
+        envelope = get_effective_stage_envelope(
+            crop=str(cycle.get("crop_name", "")), stage=str(current_stage),
+            effective_at=datetime.now(timezone.utc),
+            cultivar=cycle.get("cultivar"),
+        )
 
     pollinated_at = cycle["fruit_set_at"]
     if pollinated_at.tzinfo is None:
@@ -136,6 +195,8 @@ def load_harvest_story(farm_key: str = "greenhouse_a", lot_id: str | None = None
                     "coverage_pct": round(float(row.get("coverage_pct", 0)), 1) if row else 0,
                     "mean_air_temp_c": round(float(row["mean_air_temp_c"]), 2) if row else None,
                     "rolling_7d_mean_temp_c": round(float(row["rolling_7d_mean_temp_c"]), 2) if row and row.get("rolling_7d_mean_temp_c") is not None else None,
+                    "mean_vpd_kpa": round(float(row["mean_vpd_kpa"]), 3) if row and row.get("mean_vpd_kpa") is not None else None,
+                    "vpd_samples": int(row.get("vpd_samples", 0)) if row else 0,
                     "gdd_context": round(float(row["gdd_context"]), 2) if row and row.get("gdd_context") is not None else None,
                     "cumulative_gdd_context": round(float(row["cumulative_gdd_context"]), 2) if row and row.get("cumulative_gdd_context") is not None else None}
             node_rows.append(item)
@@ -161,6 +222,8 @@ def load_harvest_story(farm_key: str = "greenhouse_a", lot_id: str | None = None
 
     return {
         "farm_key": farm_key, "crop_cycle": cycle, "pollination_day": pollination_day,
+        "current_stage": current_stage,
+        "stage_envelope": envelope,
         "harvest_early": early, "harvest_late": late, "days_since_pollination": elapsed_days,
         "reference_day": pollination_day + timedelta(days=int(cycle.get("reference_day", 39))),
         "days_to_early": days_to_early, "days_to_late": days_to_late,
@@ -177,5 +240,11 @@ def load_harvest_story(farm_key: str = "greenhouse_a", lot_id: str | None = None
             {"stage": "$set", "purpose": "Chấm độ phủ ngày; chỉ ngày đủ mẫu và không có khoảng trống dài mới tính nhiệt tích lũy."},
             {"stage": "$setWindowFields", "purpose": "Tạo GDD ngữ cảnh lũy kế và nhiệt độ trung bình trượt 7 ngày theo node."},
         ],
-        "note": "Các ngày 33, 36, 39, 42, 45 là mốc lấy mẫu của nghiên cứu giống dưa lưới Khang Nguyên (Galia), không phải khoảng thu hoạch áp dụng cho mọi giống. Giống của lô diễn tập chưa được xác nhận; lịch này chỉ nhắc kiểm tra quả, không dự báo ngày hái đã hiệu chuẩn. Tích nhiệt chỉ dùng chuỗi lịch sử gieo theo giờ v2; độ tươi bản tin được xem riêng từ luồng mô phỏng live, không trộn hai nhịp lấy mẫu.",
+        "derived_metrics": {"vpd": "Tính trong MongoDB từ nhiệt độ và độ ẩm không khí theo Tetens; chỉ hiện khi cả hai số đo hợp lệ.",
+                            "dli": None, "dli_status": "unavailable_no_persisted_par_or_radiation_series"},
+        "metric_units": {"mean_air_temp_c": "°C", "rolling_7d_mean_temp_c": "°C",
+                         "mean_vpd_kpa": "kPa", "gdd_context": "°C·day",
+                         "cumulative_gdd_context": "°C·day", "coverage_pct": "%",
+                         "max_observed_gap_seconds": "s"},
+        "note": "Các ngày 33, 36, 39, 42, 45 là mốc lấy mẫu của nghiên cứu giống dưa lưới Khang Nguyên (Galia), không phải khoảng thu hoạch áp dụng cho mọi giống. Giống của lô diễn tập chưa được xác nhận; lịch này chỉ nhắc kiểm tra quả, không dự báo ngày hái đã hiệu chuẩn. Tích nhiệt chỉ dùng chuỗi lịch sử gieo theo giờ v2; độ tươi bản tin được xem riêng từ luồng mô phỏng live, không trộn hai nhịp lấy mẫu. DLI chưa được tính vì MongoDB chưa lưu chuỗi PAR/bức xạ có tần suất phù hợp.",
     }

@@ -1,0 +1,9 @@
+$ErrorActionPreference='Stop'
+$json=Join-Path $env:TEMP ('smiot-verify-special-' + [guid]::NewGuid().ToString('N') + '.json')
+$ids='["INC-SMIOT-SCENARIO-61B502B2FD022B9C","INC-SMIOT-SCENARIO-B1797FE944C944F0","INC-SMIOT-W10-20261112T074904-7243BB99","INC-SMIOT-W9-DRILL-2DFA79E1EE"]'
+$code='import os,json,urllib.parse,urllib.request; ids=json.loads(' + (ConvertTo-Json $ids -Compress) + '); api=os.getenv("DD_API_KEY") or os.getenv("DATADOG_API_KEY"); app=os.getenv("DD_APP_KEY") or os.getenv("DATADOG_APP_KEY"); out=[];\nfor i in ids:\n r={"incident_id":i}\n for k,p,q in [("logs","/api/v2/logs/events","\""+i+"\""),("spans","/api/v2/spans/events","@incident.id:"+i)]:\n  try:\n   u="https://api.datadoghq.com"+p+"?"+urllib.parse.urlencode({"filter[query]":q,"page[limit]":"100"}); req=urllib.request.Request(u,headers={"DD-API-KEY":api,"DD-APPLICATION-KEY":app}); r[k]=len(json.load(urllib.request.urlopen(req,timeout=20)).get("data",[]))\n  except Exception: r[k]="error"\n out.append(r)\nprint(json.dumps(out,separators=(",",":")))'
+$commands=@('set -e','cd /opt/smiot',"python3 -c '$code'")
+(@{commands=$commands}|ConvertTo-Json -Compress)|Set-Content -Encoding ascii $json
+$id=(aws ssm send-command --profile aws-moi --region ap-southeast-2 --instance-ids i-00bf2d3591d3ee0a2 --document-name AWS-RunShellScript --parameters file://$json --comment 'SMIOT verify specialized correlation' --query Command.CommandId --output text).Trim()
+do {Start-Sleep 3;$r=aws ssm get-command-invocation --profile aws-moi --region ap-southeast-2 --command-id $id --instance-id i-00bf2d3591d3ee0a2 --output json|ConvertFrom-Json;if($r.Status -in @('Success','Failed','Cancelled','TimedOut')){Write-Output $r.StandardOutputContent;if($r.Status -ne 'Success'){Write-Output $r.StandardErrorContent};break}}while($true)
+Remove-Item $json -Force -ErrorAction SilentlyContinue

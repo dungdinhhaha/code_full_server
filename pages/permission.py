@@ -3,6 +3,8 @@ pages/permission.py — Trang Quản Lý Phân Quyền (DB Thật 100%)
 Kết nối trực tiếp SQLite, CRUD user & permissions thực tế.
 """
 
+from html import escape as html_escape
+
 from nicegui import ui, app
 from pages.home import CUSTOM_CSS, sidebar, global_topbar
 from pages.login import check_login
@@ -11,8 +13,20 @@ from service.auth import (
     get_user_permissions, set_user_permissions,
     create_user, update_user, delete_user,
     ROLE_PRESETS, FIXED_FARMS, FARM_PRESETS,
-    get_user_farms, set_user_farms, get_all_farms
+    get_user_farms, set_user_farms, get_all_farms,
+    PermissionDenied,
 )
+
+
+def _actor() -> dict:
+    """Current session identity; re-read on every write so a demoted session loses rights at once."""
+    return {"actor_role": app.storage.user.get('role', '') or '',
+            "actor_permissions": list(app.storage.user.get('permissions', []) or [])}
+
+
+def _denied(exc: Exception) -> None:
+    ui.notify("Không đủ quyền cho thay đổi này (chỉ admin được đổi tài khoản admin hoặc cấp quyền mình không có).",
+              color="negative")
 
 # ─────────────────────────────────────────────
 # PERMISSION PAGE CSS
@@ -47,6 +61,9 @@ PERM_CSS = """
 }
 .preset-btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 
+.perm-layout {
+    display: grid; grid-template-columns: 1fr 2fr; gap: 24px; align-items: start;
+}
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
@@ -58,6 +75,12 @@ PERM_CSS = """
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 1024px) {
+    .perm-layout { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 480px) {
+    .perm-grid2 { grid-template-columns: 1fr !important; }
 }
 """
 
@@ -97,9 +120,7 @@ def trang_permission():
 
         with ui.element("div").classes("content-area"):
             # ── Layout 2 cột: 1 trái (user list) + 2 phải (form) ──
-            with ui.element("div").style(
-                "display:grid;grid-template-columns:1fr 2fr;gap:24px;align-items:start"
-            ):
+            with ui.element("div").classes("perm-layout"):
                 # ══════════════════════════════════════
                 # CỘT TRÁI: Danh sách User
                 # ══════════════════════════════════════
@@ -108,7 +129,7 @@ def trang_permission():
                         ui.label("Danh sách User").style("font-weight:700;font-size:15px;color:#1a1a2e")
 
                         def show_add_dialog():
-                            with ui.dialog() as dlg, ui.card().style("width:380px;border-radius:16px;padding:24px"):
+                            with ui.dialog() as dlg, ui.card().style("width:380px;max-width:92vw;border-radius:16px;padding:24px"):
                                 ui.label("Thêm User Mới").style("font-weight:700;font-size:16px;margin-bottom:16px")
                                 new_username = ui.input("Username").style("width:100%")
                                 new_fullname = ui.input("Tên hiển thị").style("width:100%")
@@ -128,10 +149,14 @@ def trang_permission():
                                         if not new_username.value or not new_password.value or not new_fullname.value:
                                             ui.notify("Vui lòng điền đầy đủ", color="warning")
                                             return
-                                        result = create_user(
-                                            new_username.value, new_password.value,
-                                            new_fullname.value, new_role.value
-                                        )
+                                        try:
+                                            result = create_user(
+                                                new_username.value, new_password.value,
+                                                new_fullname.value, new_role.value, **_actor()
+                                            )
+                                        except PermissionDenied as exc:
+                                            _denied(exc)
+                                            return
                                         if result:
                                             ui.notify(f"Đã thêm user '{new_username.value}'", color="positive")
                                             dlg.close()
@@ -266,7 +291,7 @@ def trang_permission():
                                 ui.label("Cấu Hình Quyền Truy Cập").style("font-weight:700;font-size:15px;color:#1a1a2e")
                                 ui.html(
                                     f'<div style="font-size:12px;color:#aaa;margin-top:4px">'
-                                    f'Đang chỉnh sửa cho: <span style="font-weight:600;color:#4361ee">{user["username"]}</span>'
+                                    f'Đang chỉnh sửa cho: <span style="font-weight:600;color:#4361ee">{html_escape(str(user["username"]))}</span>'
                                     f'</div>'
                                 )
 
@@ -281,9 +306,13 @@ def trang_permission():
 
                                 def do_save():
                                     selected = [k for k, v in perm_states.items() if v]
-                                    set_user_permissions(uid, selected)
                                     selected_farms = [k for k, v in farm_states.items() if v]
-                                    set_user_farms(uid, selected_farms)
+                                    try:
+                                        set_user_permissions(uid, selected, **_actor())
+                                        set_user_farms(uid, selected_farms, **_actor())
+                                    except PermissionDenied as exc:
+                                        _denied(exc)
+                                        return
                                     ui.notify(f"Đã lưu quyền + farm cho '{user['username']}'", color="positive")
                                     render_user_list.refresh()
 
@@ -294,7 +323,7 @@ def trang_permission():
 
                         # ── Thông tin cơ bản ──
                         fullname_input = ui.input("Tên hiển thị", value=user["fullname"]).style("width:100%").props("outlined dense")
-                        with ui.element("div").style("display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px"):
+                        with ui.element("div").classes("perm-grid2").style("display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px"):
                             role_select = ui.select(
                                 ["admin", "operator", "viewer"],
                                 value=user["role"], label="Role"
@@ -302,12 +331,17 @@ def trang_permission():
                             pw_input = ui.input("Mật khẩu mới (để trống = giữ nguyên)", password=True).props("outlined dense")
 
                         def do_update_info():
-                            update_user(
-                                uid,
-                                fullname=fullname_input.value if fullname_input.value else None,
-                                role=role_select.value if role_select.value else None,
-                                password=pw_input.value if pw_input.value else None,
-                            )
+                            try:
+                                update_user(
+                                    uid,
+                                    fullname=fullname_input.value if fullname_input.value else None,
+                                    role=role_select.value if role_select.value else None,
+                                    password=pw_input.value if pw_input.value else None,
+                                    **_actor(),
+                                )
+                            except PermissionDenied as exc:
+                                _denied(exc)
+                                return
                             ui.notify("Đã cập nhật thông tin", color="positive")
                             render_user_list.refresh()
 
@@ -351,7 +385,7 @@ def trang_permission():
                                 modules[mod] = []
                             modules[mod].append(p)
 
-                        with ui.element("div").style("display:grid;grid-template-columns:1fr 1fr;gap:16px"):
+                        with ui.element("div").classes("perm-grid2").style("display:grid;grid-template-columns:1fr 1fr;gap:16px"):
                             for mod_key, mod_perms in modules.items():
                                 config = MODULE_CONFIG.get(mod_key, {"icon": "📋", "label": mod_key, "color": "#666"})
                                 is_admin_mod = mod_key == "admin"
@@ -392,7 +426,7 @@ def trang_permission():
                                 "font-size:11px;color:#94a3b8;margin-bottom:12px"
                             )
 
-                            with ui.element("div").style("display:grid;grid-template-columns:1fr 1fr;gap:8px"):
+                            with ui.element("div").classes("perm-grid2").style("display:grid;grid-template-columns:1fr 1fr;gap:8px"):
                                 for farm in all_farms:
                                     def toggle_farm(e, fkey=farm["key"]):
                                         farm_states[fkey] = e.value
@@ -409,7 +443,7 @@ def trang_permission():
                             "display:flex;justify-content:space-between;align-items:center"
                         ):
                             def do_delete():
-                                with ui.dialog() as confirm_dlg, ui.card().style("border-radius:16px;padding:24px"):
+                                with ui.dialog() as confirm_dlg, ui.card().style("max-width:92vw;border-radius:16px;padding:24px"):
                                     ui.label(f"Xác nhận xóa user '{user['username']}'?").style(
                                         "font-weight:600;font-size:15px;margin-bottom:16px"
                                     )
@@ -421,7 +455,12 @@ def trang_permission():
                                         ).props("flat")
 
                                         def confirm_delete():
-                                            delete_user(uid)
+                                            try:
+                                                delete_user(uid, **_actor())
+                                            except PermissionDenied as exc:
+                                                _denied(exc)
+                                                confirm_dlg.close()
+                                                return
                                             selected_user_id['value'] = None
                                             ui.notify(f"Đã xóa user '{user['username']}'", color="positive")
                                             confirm_dlg.close()

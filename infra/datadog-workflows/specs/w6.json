@@ -1,0 +1,299 @@
+{
+  "steps": [
+    {
+      "display": {
+        "bounds": {
+          "y": 96,
+          "x": 0
+        }
+      },
+      "errorHandlers": [
+        {
+          "fallbackStepName": "escalate_query_failed",
+          "retryStrategy": {
+            "linear": {
+              "interval": "1s",
+              "maxRetries": 1
+            },
+            "kind": "RETRY_STRATEGY_LINEAR"
+          }
+        }
+      ],
+      "name": "read_operational_signals",
+      "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "verify_evidence_available"
+        }
+      ],
+      "parameters": [
+        {
+          "value": "10m",
+          "name": "range"
+        },
+        {
+          "value": [
+            {
+              "aggregator": "last",
+              "name": "heartbeat",
+              "query": "max:smiot.detector.watchdog_heartbeat{detector:agronomic_advisory} by {farm}",
+              "data_source": "metrics"
+            },
+            {
+              "aggregator": "last",
+              "name": "external_input_fresh",
+              "query": "max:smiot.external.detector_input_fresh{detector:agronomic_advisory}",
+              "data_source": "metrics"
+            },
+            {
+              "aggregator": "last",
+              "name": "evaluation_heartbeat",
+              "query": "max:smiot.detector.evaluation_heartbeat{detector:agronomic_advisory} by {farm}",
+              "data_source": "metrics"
+            }
+          ],
+          "name": "queries"
+        },
+        {
+          "value": [
+            {
+              "formula": "heartbeat"
+            },
+            {
+              "formula": "external_input_fresh"
+            },
+            {
+              "formula": "evaluation_heartbeat"
+            }
+          ],
+          "name": "formulas"
+        }
+      ]
+    },
+    {
+      "name": "verify_evidence_available",
+      "actionId": "com.datadoghq.core.if",
+      "display": {
+        "bounds": {
+          "x": 0,
+          "y": 216
+        }
+      },
+      "parameters": [
+        {
+          "name": "joinOperator",
+          "value": "and"
+        },
+        {
+          "name": "conditions",
+          "value": [
+            {
+              "comparisonOperator": "eq",
+              "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; return [\"heartbeat\",\"external_input_fresh\",\"evaluation_heartbeat\"].every(k => Number.isFinite(Number(c.find(x=>x.name===k)?.values?.[0]))); })() }",
+              "rightValue": true
+            }
+          ]
+        }
+      ],
+      "outboundEdges": [
+        {
+          "branchName": "true",
+          "nextStepName": "classify_evidence"
+        },
+        {
+          "branchName": "false",
+          "nextStepName": "escalate_missing_evidence"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "x": 0,
+          "y": 384
+        }
+      },
+      "name": "classify_evidence",
+      "outboundEdges": [
+        {
+          "nextStepName": "evidence_observed",
+          "branchName": "true"
+        },
+        {
+          "nextStepName": "escalate_or_review",
+          "branchName": "false"
+        }
+      ],
+      "parameters": [
+        {
+          "value": "and",
+          "name": "joinOperator"
+        },
+        {
+          "value": [
+            {
+              "comparisonOperator": "eq",
+              "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; return [\"heartbeat\",\"external_input_fresh\",\"evaluation_heartbeat\"].every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v) && v>0; }); })() }",
+              "rightValue": true
+            }
+          ],
+          "name": "conditions"
+        }
+      ],
+      "actionId": "com.datadoghq.core.if"
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "evidence_observed",
+      "parameters": [
+        {
+          "value": "W6 | HEARTBEAT_SEEN | Detector reported a heartbeat in the query window. Verify latest persisted finding and detector logs; no process action. | RECORD=workflow run and linked monitor event | VERIFY=check app action ledger and fresh telemetry before marking recovered; Echo is not recovery proof",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "escalate_or_review",
+      "parameters": [
+        {
+          "value": "W6 | HEARTBEAT_MISSING_OR_UNKNOWN | No heartbeat value was returned. Confirm metric ingestion and app health, then escalate. Do not restart from missing evidence. | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "escalate_query_failed",
+      "parameters": [
+        {
+          "value": "SMIOT | W6 | Detector heartbeat review | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "name": "escalate_missing_evidence",
+      "actionId": "com.datadoghq.core.echo",
+      "display": {
+        "bounds": {
+          "x": 384,
+          "y": 552
+        }
+      },
+      "parameters": [
+        {
+          "name": "value",
+          "value": "W6 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+        }
+      ],
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "name": "notify_smiot_app",
+      "actionId": "com.datadoghq.http.request",
+      "connectionLabel": "SMIOT_APP_HTTP",
+      "parameters": [
+        {
+          "name": "verb",
+          "value": "POST"
+        },
+        {
+          "name": "url",
+          "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+        },
+        {
+          "name": "requestHeaders",
+          "value": [
+            {
+              "key": "Content-Type",
+              "value": [
+                "application/json"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "body",
+          "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W6 detector heartbeat review completed. Treat a missing or stale heartbeat as unknown until app and MongoDB evidence are checked; no restart or actuator action was issued. Run {{InstanceId}} contains the evidence. Correlation remains unverified: this workflow context does not supply a verified incident, farm, or scenario-run ID.\",\"category\":\"datadog\",\"severity\":\"warning\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"investigating\",\"verification_status\":\"unknown\"}"
+        }
+      ],
+      "readinessGate": {
+        "thresholdType": "ANY"
+      }
+    }
+  ],
+  "handle": "smiot-w06-detector-heartbeat",
+  "triggers": [
+    {
+      "startStepNames": [
+        "read_operational_signals"
+      ],
+      "monitorTrigger": {
+          "rateLimit": {
+            "count": 10,
+            "interval": "300s"
+          }
+      }
+    },
+    {
+      "startStepNames": [
+        "read_operational_signals"
+      ],
+      "apiTrigger": {}
+    }
+  ],
+  "connectionEnvs": [
+    {
+      "env": "default",
+      "connections": [
+        {
+          "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+          "label": "SMIOT_APP_HTTP"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "boards": [
+    {
+      "id": "esp32",
+      "boardKind": "esp32",
+      "x": 50,
+      "y": 50,
+      "activeFileGroupId": "group-esp32",
+      "languageMode": "arduino",
+      "serialBaudRate": 115200,
+      "libraries": [
+        "DHT sensor library for ESPx",
+        "PubSubClient",
+        "DHT sensor library"
+      ]
+    }
+  ],
+  "components": [
+    {
+      "id": "dht",
+      "metadataId": "dht22",
+      "x": 330,
+      "y": -70,
+      "properties": { "temperature": "29", "humidity": "72" }
+    },
+    {
+      "id": "soil",
+      "metadataId": "potentiometer",
+      "x": 330,
+      "y": 120,
+      "properties": { "value": "1800" }
+    },
+    {
+      "id": "r-alert",
+      "metadataId": "resistor",
+      "x": 450,
+      "y": 190,
+      "properties": { "value": "220" }
+    },
+    {
+      "id": "alert",
+      "metadataId": "led",
+      "x": 530,
+      "y": 200,
+      "properties": { "color": "red", "label": "CLIMATE ALERT" }
+    },
+    {
+      "id": "buzzer",
+      "metadataId": "buzzer",
+      "x": 530,
+      "y": 110,
+      "properties": {}
+    },
+    {
+      "id": "label",
+      "metadataId": "text",
+      "x": 315,
+      "y": 290,
+      "properties": {
+        "text": "Node 1: synthetic climate/soil telemetry; red LED + one beep at alert threshold"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "waypoints": [], "id": "wire-0-1794498495012",
+      "start": { "componentId": "esp32", "pinName": "3V3", "x": 184, "y": 257 },
+      "end": { "componentId": "dht", "pinName": "VCC", "x": 351, "y": 50.900000000000006 },
+      "color": "#ff0000"
+    },
+    {
+      "waypoints": [], "id": "wire-1-1794498495012",
+      "start": { "componentId": "dht", "pinName": "SDA", "x": 360.5, "y": 50.900000000000006 },
+      "end": { "componentId": "esp32", "pinName": "D4", "x": 184, "y": 206 },
+      "color": "#00c800"
+    },
+    {
+      "waypoints": [], "id": "wire-2-1794498495012",
+      "start": { "componentId": "dht", "pinName": "GND", "x": 379.8, "y": 50.900000000000006 },
+      "end": { "componentId": "esp32", "pinName": "GND.1", "x": 56, "y": 244 },
+      "color": "#000000"
+    },
+    {
+      "waypoints": [], "id": "wire-3-1794498495012",
+      "start": { "componentId": "esp32", "pinName": "3V3", "x": 184, "y": 257 },
+      "end": { "componentId": "soil", "pinName": "VCC", "x": 385, "y": 194.5 },
+      "color": "#ff0000"
+    },
+    {
+      "waypoints": [], "id": "wire-4-1794498495012",
+      "start": { "componentId": "soil", "pinName": "SIG", "x": 375, "y": 194.5 },
+      "end": { "componentId": "esp32", "pinName": "D34", "x": 56, "y": 117 },
+      "color": "#00c800"
+    },
+    {
+      "waypoints": [], "id": "wire-5-1794498495012",
+      "start": { "componentId": "soil", "pinName": "GND", "x": 365, "y": 194.5 },
+      "end": { "componentId": "esp32", "pinName": "GND.1", "x": 56, "y": 244 },
+      "color": "#000000"
+    },
+    {
+      "waypoints": [], "id": "wire-6-1794498495012",
+      "start": { "componentId": "esp32", "pinName": "D23", "x": 184, "y": 79 },
+      "end": { "componentId": "r-alert", "pinName": "1", "x": 456, "y": 201.65 },
+      "color": "#ff0000"
+    },
+    {
+      "waypoints": [], "id": "wire-7-1794498495012",
+      "start": { "componentId": "r-alert", "pinName": "2", "x": 514.8, "y": 201.65 },
+      "end": { "componentId": "alert", "pinName": "A", "x": 561, "y": 248 },
+      "color": "#ff0000"
+    },
+    {
+      "waypoints": [], "id": "wire-8-1794498495012",
+      "start": { "componentId": "alert", "pinName": "C", "x": 551, "y": 248 },
+      "end": { "componentId": "esp32", "pinName": "GND.1", "x": 56, "y": 244 },
+      "color": "#000000"
+    },
+    {
+      "waypoints": [], "id": "wire-9-1794498495012",
+      "start": { "componentId": "esp32", "pinName": "D22", "x": 184, "y": 92 },
+      "end": { "componentId": "buzzer", "pinName": "1", "x": 563, "y": 200 },
+      "color": "#ff8800"
+    },
+    {
+      "waypoints": [], "id": "wire-10-1794498495012",
+      "start": { "componentId": "buzzer", "pinName": "2", "x": 573, "y": 200 },
+      "end": { "componentId": "esp32", "pinName": "GND.1", "x": 56, "y": 244 },
+      "color": "#000000"
+    }
+  ]
+}

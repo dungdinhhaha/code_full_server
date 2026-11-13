@@ -1,0 +1,597 @@
+{
+  "data": {
+    "attributes": {
+      "endTimestamp": "2026-11-10T09:56:13.570331Z",
+      "instanceStatus": {
+        "detailsKind": "SUCCEEDED",
+        "displayName": "Success"
+      },
+      "outputs": {},
+      "source": {
+        "api": {
+          "actingUser": {
+            "userEmail": "dungyeuduyen08032004@gmail.com",
+            "userName": "dung tien",
+            "userUuid": "92c5d45e-0b70-4b11-92d4-6cec4993965b"
+          },
+          "body": "ew0KICAibWV0YSI6IHsNCiAgICAicGF5bG9hZCI6IHsNCiAgICAgICJub2RlX2lkIjogIm5vZGVfMSIsDQogICAgICAidGhyZXNob2xkX3NlY29uZHMiOiA5MCwNCiAgICAgICJmYXJtX2tleSI6ICJncmVlbmhvdXNlX2EiLA0KICAgICAgImluY2lkZW50X2lkIjogImRlbW8tcmVhZG9ubHktMjAyNjExMTAiLA0KICAgICAgInN5bnRoZXRpYyI6IHRydWUNCiAgICB9DQogIH0NCn0=",
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "215",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          }
+        }
+      },
+      "sourceForTemplating": {
+        "api": {
+          "headers": {
+            "Accept-Encoding": "gzip",
+            "Content-Length": "215",
+            "User-Agent": "Go-http-client/2.0",
+            "X-Forwarded-Port": "8129",
+            "X-Forwarded-Proto": "https"
+          },
+          "requestBody": "{\r\n  \"meta\": {\r\n    \"payload\": {\r\n      \"node_id\": \"node_1\",\r\n      \"threshold_seconds\": 90,\r\n      \"farm_key\": \"greenhouse_a\",\r\n      \"incident_id\": \"demo-readonly-20261110\",\r\n      \"synthetic\": true\r\n    }\r\n  }\r\n}"
+        },
+        "initiator": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "name": "SMIOT | W5 | Root cause dependency triage",
+        "runAsUser": {
+          "email": "dungyeuduyen08032004@gmail.com",
+          "id": "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+          "name": "dung tien",
+          "orgId": "9f18d024-dc29-11f1-a48a-e2dd37ec4bef"
+        },
+        "runAsUserMode": "owner",
+        "type": "workflows_api",
+        "url": "https://app.datadoghq.com/workflow/d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9?instance=129839c9-8b4e-4ab8-a247-87ead0eb2280"
+      },
+      "startTimestamp": "2026-11-10T09:56:08.318597Z",
+      "stepStateAssociations": [
+        {
+          "finishedAt": "2026-11-10T09:56:09.224914Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T09:56:08.724057Z",
+          "stepName": "read_operational_signals",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:10.106026Z",
+          "outboundBranch": "true",
+          "startedAt": "2026-11-10T09:56:09.782222Z",
+          "stepName": "verify_evidence_available",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:10.873986Z",
+          "outboundBranch": "false",
+          "startedAt": "2026-11-10T09:56:10.606718Z",
+          "stepName": "classify_mongo",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:11.564576Z",
+          "outboundBranch": "false",
+          "startedAt": "2026-11-10T09:56:11.381597Z",
+          "stepName": "classify_mqtt",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:12.345459Z",
+          "outboundBranch": "false",
+          "startedAt": "2026-11-10T09:56:12.071902Z",
+          "stepName": "classify_ingest",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:12.542814Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T09:56:12.354192Z",
+          "stepName": "no_dependency_breach",
+          "stepState": "SUCCEEDED"
+        },
+        {
+          "finishedAt": "2026-11-10T09:56:13.560531Z",
+          "outboundBranch": "main",
+          "startedAt": "2026-11-10T09:56:12.550244Z",
+          "stepName": "notify_smiot_app",
+          "stepState": "SUCCEEDED"
+        }
+      ],
+      "systemTags": [
+        "service:smiot-smart-farm"
+      ],
+      "trigger": {
+        "farm_key": "greenhouse_a",
+        "incident_id": "demo-readonly-20261110",
+        "node_id": "node_1",
+        "synthetic": true,
+        "threshold_seconds": 90
+      },
+      "userTags": [
+        "env:demo",
+        "plan:workflow-05",
+        "project:smiot",
+        "safety:read-only"
+      ]
+    },
+    "id": "129839c9-8b4e-4ab8-a247-87ead0eb2280",
+    "relationships": {
+      "specVersion": {
+        "data": {
+          "id": "b4e10bbf-62b7-4036-b5f7-9b04908e35dc",
+          "type": "spec_versions"
+        }
+      },
+      "workflow": {
+        "data": {
+          "id": "d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9",
+          "type": "workflows"
+        }
+      }
+    },
+    "type": "instances"
+  },
+  "included": [
+    {
+      "attributes": {
+        "createdAt": "2026-11-10T09:55:50.69088Z",
+        "spec": {
+          "connectionEnvs": [
+            {
+              "connections": [
+                {
+                  "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                  "label": "SMIOT_APP_HTTP"
+                }
+              ],
+              "env": "default"
+            }
+          ],
+          "handle": "smiot-w05-root-cause-triage",
+          "steps": [
+            {
+              "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+              "display": {
+                "bounds": {
+                  "y": 96
+                }
+              },
+              "errorHandlers": [
+                {
+                  "fallbackStepName": "escalate_query_failed",
+                  "retryStrategy": {
+                    "kind": "RETRY_STRATEGY_LINEAR",
+                    "linear": {
+                      "interval": "1s",
+                      "maxRetries": 1
+                    }
+                  }
+                }
+              ],
+              "name": "read_operational_signals",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "verify_evidence_available"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "range",
+                  "value": "10m"
+                },
+                {
+                  "name": "queries",
+                  "value": [
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "mongo_up",
+                      "query": "min:smiot.dependency.mongo.up{*}"
+                    },
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "mqtt_up",
+                      "query": "min:smiot.dependency.mqtt.up{*}"
+                    },
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "ingest_lag_ms",
+                      "query": "max:smiot.telemetry.ingest_lag_ms{*}"
+                    },
+                    {
+                      "aggregator": "last",
+                      "data_source": "metrics",
+                      "name": "sample_age_s",
+                      "query": "max:smiot.telemetry.sample_age_seconds{*}"
+                    }
+                  ]
+                },
+                {
+                  "name": "formulas",
+                  "value": [
+                    {
+                      "formula": "mongo_up"
+                    },
+                    {
+                      "formula": "mqtt_up"
+                    },
+                    {
+                      "formula": "ingest_lag_ms"
+                    },
+                    {
+                      "formula": "sample_age_s"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "y": 216
+                }
+              },
+              "name": "verify_evidence_available",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "classify_mongo"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "escalate_missing_evidence"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"mongo_up\", \"mqtt_up\", \"ingest_lag_ms\", \"sample_age_s\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "y": 552
+                }
+              },
+              "name": "escalate_query_failed",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "SMIOT | W5 | Root cause dependency triage | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action."
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 552
+                }
+              },
+              "name": "escalate_missing_evidence",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W5 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "y": 384
+                }
+              },
+              "name": "classify_mongo",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "mongo_degraded"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "classify_mqtt"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"mongo_up\")?.values?.[0]); return Number.isFinite(v) && v<1; })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 384
+                }
+              },
+              "name": "classify_mqtt",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "mqtt_degraded"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "classify_ingest"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"mqtt_up\")?.values?.[0]); return Number.isFinite(v) && v<1; })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.if",
+              "display": {
+                "bounds": {
+                  "x": 768,
+                  "y": 384
+                }
+              },
+              "name": "classify_ingest",
+              "outboundEdges": [
+                {
+                  "branchName": "true",
+                  "nextStepName": "ingest_delayed"
+                },
+                {
+                  "branchName": "false",
+                  "nextStepName": "no_dependency_breach"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "joinOperator",
+                  "value": "and"
+                },
+                {
+                  "name": "conditions",
+                  "value": [
+                    {
+                      "comparisonOperator": "eq",
+                      "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const l=Number(c.find(x=>x.name===\"ingest_lag_ms\")?.values?.[0]); const a=Number(c.find(x=>x.name===\"sample_age_s\")?.values?.[0]); return (Number.isFinite(l)&&l>5000)||(Number.isFinite(a)&&a>120); })() }",
+                      "rightValue": true
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "y": 552
+                }
+              },
+              "name": "mongo_degraded",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W5 | PROBABLE_DOMAIN=MONGODB | Mongo health metric is below healthy. Correlate Mongo logs/trace, persistence failures, MQTT state and ingest lag before assigning sole root cause; simultaneous faults may coexist. No restart."
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 384,
+                  "y": 552
+                }
+              },
+              "name": "mqtt_degraded",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W5 | PROBABLE_DOMAIN=MQTT | Broker/consumer health metric is below healthy. Correlate MQTT logs/trace, Mongo persistence and ingest lag; simultaneous faults may coexist. No restart."
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 768,
+                  "y": 552
+                }
+              },
+              "name": "ingest_delayed",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W5 | PROBABLE_DOMAIN=INGEST_PATH | Ingest lag or sample age exceeds the configured triage threshold. Check publisher, broker, consumer, persistence and traces together; do not attribute cause from this signal alone. No restart."
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.core.echo",
+              "display": {
+                "bounds": {
+                  "x": 768,
+                  "y": 552
+                }
+              },
+              "name": "no_dependency_breach",
+              "outboundEdges": [
+                {
+                  "branchName": "main",
+                  "nextStepName": "notify_smiot_app"
+                }
+              ],
+              "parameters": [
+                {
+                  "name": "value",
+                  "value": "W5 | NO_THRESHOLD_BREACH | Required metrics are present and within configured triage thresholds. This is not proof every dependency is healthy; retain the monitor event and inspect logs/traces if the user impact persists."
+                }
+              ]
+            },
+            {
+              "actionId": "com.datadoghq.http.request",
+              "connectionLabel": "SMIOT_APP_HTTP",
+              "name": "notify_smiot_app",
+              "parameters": [
+                {
+                  "name": "verb",
+                  "value": "POST"
+                },
+                {
+                  "name": "url",
+                  "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+                },
+                {
+                  "name": "requestHeaders",
+                  "value": [
+                    {
+                      "key": "Content-Type",
+                      "value": [
+                        "application/json"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "body",
+                  "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"MongoDB, MQTT, and ingest signals were triaged. The selected dependency branch is advisory only; verify the matching farm evidence before any recovery action.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+                }
+              ],
+              "readinessGate": {
+                "thresholdType": "ANY"
+              }
+            }
+          ],
+          "triggers": [
+            {
+              "monitorTrigger": {
+                "rateLimit": {
+                  "count": 1,
+                  "interval": "300s"
+                }
+              },
+              "startStepNames": [
+                "read_operational_signals"
+              ]
+            },
+            {
+              "apiTrigger": {},
+              "startStepNames": [
+                "read_operational_signals"
+              ]
+            }
+          ]
+        },
+        "workflowId": "d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9"
+      },
+      "id": "b4e10bbf-62b7-4036-b5f7-9b04908e35dc",
+      "type": "spec_versions"
+    },
+    {
+      "attributes": {
+        "autoDescription": "This workflow identifies and categorizes root causes of dependency issues, notifying the appropriate application for further action.",
+        "createdAt": "2026-11-09T18:11:12.355438Z",
+        "creationSource": "public_api",
+        "description": "Read-only correlation of MongoDB, MQTT, ingest lag and sample age. Classifies an evidence gap for human follow-up; does not restart infrastructure.",
+        "name": "SMIOT | W5 | Root cause dependency triage",
+        "specVersionId": "b4e10bbf-62b7-4036-b5f7-9b04908e35dc",
+        "systemTags": [
+          "service:smiot-smart-farm"
+        ],
+        "updatedAt": "2026-11-10T09:55:51.939134Z",
+        "userTags": [
+          "env:demo",
+          "plan:workflow-05",
+          "project:smiot",
+          "safety:read-only"
+        ]
+      },
+      "id": "d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9",
+      "type": "workflows"
+    }
+  ],
+  "meta": {
+    "outputsTooBig": false,
+    "sourceTooBig": false,
+    "triggerTooBig": false
+  }
+}

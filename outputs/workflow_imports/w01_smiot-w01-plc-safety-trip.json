@@ -1,0 +1,168 @@
+{
+  "description": "Read-only review after a virtual PLC safety-trip signal. Confirms Datadog evidence only; local PLC interlock remains the safety authority. No actuator command.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm",
+    "plan:workflow-01",
+    "safety:read-only"
+  ],
+  "name": "SMIOT | W1 | Verify PLC safety trip evidence",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evidence",
+            "branchName": "main"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "safety_trip",
+                "query": "sum:smiot.virtual_plc.safety_trip{event:safety_trip}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "safety_trip"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 264,
+            "x": 0
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const v=Number(c.find(x=>x.name===\"safety_trip\")?.values?.[0]); return Number.isFinite(v) && v>0; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W1 | SAFETY_TRIP_EVIDENCE_SEEN | Check incident and action ledger for local PLC trip/ACK, verify flow/pressure evidence, then hand off. This workflow did not stop the pump; the virtual PLC interlock owns that action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W1 | NO_TRIP_EVIDENCE | Metric is zero or missing. Do not infer a PLC trip; inspect source freshness and incident evidence. No actuator action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W1 | Verify PLC safety trip evidence | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      }
+    ],
+    "handle": "smiot-w01-plc-safety-trip",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

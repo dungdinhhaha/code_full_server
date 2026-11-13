@@ -1,0 +1,14 @@
+# TEMPLATE ONLY - not installed by this repo.
+# Install to /etc/systemd/system/smiot-external-probe.timer, then (operator):
+#   systemctl daemon-reload && systemctl enable --now smiot-external-probe.timer
+[Unit]
+Description=Run the SMIOT external probe every 30 seconds
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=smiot-external-probe.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,67 @@
+{
+  "additionalProperties": {
+    "created_at": 1793656955000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-06T03:20:03+00:00"
+  },
+  "created": "2026-11-02T22:02:35.482Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245830
+    },
+    "email": "tiendung54.be@gmail.com",
+    "handle": "tiendung54.be@gmail.com",
+    "name": "Dũng Tiến"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339977703,
+  "matchingDowntimes": [],
+  "message": "Telemetry sample age exceeds 120 seconds. Check Wokwi source, MQTT broker, bridge, app persistence, and MongoDB in that order. Keep pumps in safe HOLD when sensor data is stale.",
+  "modified": "2026-11-03T17:07:59.901Z",
+  "multi": true,
+  "name": "SMIOT | greenhouse_a telemetry stale",
+  "options": {
+    "includeTags": true,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "onMissingData": "show_and_notify_no_data",
+    "renotifyInterval": 0,
+    "requireFullWindow": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 120
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "max(last_5m):max:smiot.telemetry.sample_age_seconds{farm:greenhouse_a,source:smiot_demo_stream} by {node} > 120",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "node:1": {
+        "lastNodataTs": 1793934723,
+        "lastNotifiedTs": 1793935143,
+        "lastResolvedTs": 1793935143,
+        "lastTriggeredTs": 1793934843,
+        "name": "node:1",
+        "status": "OK"
+      },
+      "node:2": {
+        "lastNodataTs": 1793934723,
+        "lastNotifiedTs": 1793935143,
+        "lastResolvedTs": 1793935143,
+        "lastTriggeredTs": 1793934843,
+        "name": "node:2",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "project:smiot",
+    "farm:greenhouse_a",
+    "source:smiot_demo_stream",
+    "scenario:stale-data"
+  ],
+  "type": "query alert"
+}

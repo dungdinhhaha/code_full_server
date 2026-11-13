@@ -1,0 +1,72 @@
+datadog_workflow_automation.w5: Refreshing state... [id=d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+
+Terraform will perform the following actions:
+
+  # datadog_workflow_automation.w5 will be updated in-place
+  ~ resource "datadog_workflow_automation" "w5" {
+        id                   = "d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9"
+        name                 = "SMIOT | W5 | Root cause dependency triage"
+      ~ spec_json            = jsonencode(
+          ~ {
+              ~ triggers       = [
+                  ~ {
+                      ~ monitorTrigger = {
+                          ~ rateLimit = {
+                              ~ count    = 1 -> 4
+                              ~ interval = "300s" -> "60s"
+                            }
+                        }
+                        # (1 unchanged attribute hidden)
+                    },
+                    {
+                        apiTrigger     = {}
+                        startStepNames = [
+                            "read_operational_signals",
+                        ]
+                    },
+                ]
+                # (3 unchanged attributes hidden)
+            }
+        )
+        tags                 = [
+            "env:demo",
+            "plan:workflow-05",
+            "project:smiot",
+            "safety:read-only",
+            "service:smiot-smart-farm",
+        ]
+        # (4 unchanged attributes hidden)
+    }
+
+Plan: 0 to add, 1 to change, 0 to destroy.
+datadog_workflow_automation.w5: Modifying... [id=d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9]
+datadog_workflow_automation.w5: Modifications complete after 0s [id=d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9]
+
+Warning: Resource targeting is in effect
+
+You are creating a plan with the -target option, which means that the result
+of this plan may not represent all of the changes requested by the current
+configuration.
+
+The -target option is not for routine use, and is provided only for
+exceptional situations such as recovering from errors or mistakes, or when
+Terraform specifically suggests to use it as part of an error message.
+
+Warning: Applied changes may be incomplete
+
+The plan was created with the -target option in effect, so some changes
+requested in the configuration may have been ignored and the output values
+may not be fully updated. Run the following command to verify that no other
+changes are pending:
+    terraform plan
+
+Note that the -target option is not suitable for routine use, and is provided
+only for exceptional situations such as recovering from errors or mistakes,
+or when Terraform specifically suggests to use it as part of an error
+message.
+
+Apply complete! Resources: 0 added, 1 changed, 0 destroyed.

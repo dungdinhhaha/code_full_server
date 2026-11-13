@@ -1,0 +1,177 @@
+{
+  "description": "Checks provider failure and AI latency evidence, then asks operator to verify app fail-safe HOLD and action ledger. No AI-generated irrigation action is issued.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm",
+    "plan:workflow-10",
+    "safety:read-only"
+  ],
+  "name": "SMIOT | W10 | AI failure safety verification",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evidence",
+            "branchName": "main"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "provider_failure",
+                "query": "sum:smiot.ai.provider_failure{status:provider_error}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "ask_latency_ms",
+                "query": "max:smiot.ai.ask_latency_ms{*}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "provider_failure"
+              },
+              {
+                "formula": "ask_latency_ms"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 264,
+            "x": 0
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const f=Number(c.find(x=>x.name===\"provider_failure\")?.values?.[0]); const l=Number(c.find(x=>x.name===\"ask_latency_ms\")?.values?.[0]); return (Number.isFinite(f)&&f>0)||(Number.isFinite(l)&&l>5000); })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W10 | AI_DEGRADED | Confirm the application recorded provider_error and fail-safe HOLD in the action ledger; use deterministic rules or human review. Do not trust or replay an AI irrigation recommendation.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W10 | NO_AI_FAILURE_SIGNAL | No failure/latency breach was returned or metric is absent. Check AI telemetry before claiming the provider is healthy; no irrigation action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W10 | AI failure safety verification | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      }
+    ],
+    "handle": "smiot-w10-ai-failure-safety",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

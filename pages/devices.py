@@ -1,6 +1,19 @@
-from nicegui import ui
+"""pages/devices.py - Hồ sơ thiết bị của hệ thống SMIOT.
+
+DEVICES là catalog tĩnh, lấy từ tài liệu thiết bị. Đây là thông số tham khảo của
+thiết bị ảo, không phải phần cứng lắp đặt tại nhà màng.
+"""
+
+from datetime import date, datetime
+
+from nicegui import app, ui
+
+from components.ui_kit import facts, page_header, sim_badge, state_panel, status_chip
 from pages.home import CUSTOM_CSS, sidebar, global_topbar
 from pages.login import check_login
+from service.auth import get_latest_flow, get_latest_node
+from service.farm_registry import FARM_LABELS
+from service.mongodb_store import collection
 
 # ─────────────────────────────────────────────
 # DEVICES DATA — ảnh từ Word, thông số tra cứu
@@ -11,7 +24,7 @@ DEVICES = [
         "name": "Module SIMATIC IOT2050",
         "model": "6ES7647-0BA00-0YA2",
         "category": "GATEWAY / IOT MODULE",
-        "cat_color": "#4361ee",
+        "cat_color": "var(--sm-vine)",
         "image": "/static/device_images/device_8_image1.jpg",
         "short": "CPU Intel Atom® x6413E, RAM 4GB, eMMC 32GB, 2×RJ45, USB, RS485",
         "specs": {
@@ -32,7 +45,7 @@ DEVICES = [
         "name": "Bộ lập trình LOGO! 230RCE Siemens",
         "model": "6ED1052-1FB08-0BA2",
         "category": "LOGIC MODULE / PLC MINI",
-        "cat_color": "#00b4d8",
+        "cat_color": "var(--sm-info)",
         "image": "/static/device_images/device_9_image2.jpeg",
         "short": "Nguồn cấp: 115–230V AC/DC, Ngõ vào: 8 DI, Ngõ ra: 4 Relay, Ethernet",
         "specs": {
@@ -52,7 +65,7 @@ DEVICES = [
         "name": "Module mở rộng DM8 Logo! 230RC Siemens",
         "model": "6ED1055-1FB00-0BA1",
         "category": "EXPANSION MODULE",
-        "cat_color": "#00b4d8",
+        "cat_color": "var(--sm-info)",
         "image": "/static/device_images/device_10_image3.jpg",
         "short": "Nguồn cấp: 230V AC/DC, Ngõ vào số: 4 DI (230V AC), Ngõ ra: 4 Relay",
         "specs": {
@@ -70,7 +83,7 @@ DEVICES = [
         "name": "Biến tần INVT GD20",
         "model": "GD20-0R7G-S2-BK",
         "category": "INVERTER (BIẾN TẦN)",
-        "cat_color": "#f77f00",
+        "cat_color": "var(--sm-watch)",
         "image": "/static/device_images/device_11_image4.jfif",
         "short": "Công suất: 0.75kW (1HP), Điện áp vào: 1 Pha 220VAC, RS485 Modbus",
         "specs": {
@@ -90,7 +103,7 @@ DEVICES = [
         "name": "Cảm biến pH DFRobot Gravity V2",
         "model": "SEN0169-V2",
         "category": "CẢM BIẾN NƯỚC",
-        "cat_color": "#7c3aed",
+        "cat_color": "var(--sm-vine-deep)",
         "image": "/static/device_images/device_7_image5.jfif",
         "short": "Dải đo: 0–14 pH, Tín hiệu Analog 0–3V, Cấp nguồn 3.3–5.5V",
         "specs": {
@@ -114,7 +127,7 @@ DEVICES = [
         "name": "Cảm biến EC DFRobot Gravity V2 (K=1)",
         "model": "DFR0300-H",
         "category": "CẢM BIẾN NƯỚC",
-        "cat_color": "#7c3aed",
+        "cat_color": "var(--sm-vine-deep)",
         "image": "/static/device_images/device_6_image6.jfif",
         "short": "Dải đo: 0–20 mS/cm, Tự bù nhiệt độ, Tín hiệu Analog 0–3.4V",
         "specs": {
@@ -138,7 +151,7 @@ DEVICES = [
         "name": "Cảm biến đất 3 trong 1 ES-SM-THEC-01",
         "model": "ES-SM-THEC-01",
         "category": "CẢM BIẾN ĐẤT",
-        "cat_color": "#20bf6b",
+        "cat_color": "var(--sm-ok)",
         "image": "/static/device_images/device_5_image7.jpeg",
         "short": "Đo: Nhiệt độ + Độ ẩm + EC đất, RS485 Modbus RTU, IP68",
         "specs": {
@@ -163,7 +176,7 @@ DEVICES = [
         "name": "Cảm biến Nhiệt Độ & Độ Ẩm SHT20 RS485",
         "model": "SHT20-RS485",
         "category": "CẢM BIẾN KHÔNG KHÍ",
-        "cat_color": "#4cc9f0",
+        "cat_color": "var(--sm-info)",
         "image": "/static/device_images/device_1_image8.jfif",
         "short": "Đo: Nhiệt độ (±0.3°C) + Độ ẩm (±3%), RS485, IP65",
         "specs": {
@@ -187,7 +200,7 @@ DEVICES = [
         "name": "ESP32 Dev Kit V1",
         "model": "ESP32-WROOM-32",
         "category": "VI ĐIỀU KHIỂN / GATEWAY",
-        "cat_color": "#ef233c",
+        "cat_color": "var(--sm-act)",
         "image": "/static/device_images/device_2_image9.jfif",
         "short": "Dual-core 240MHz, WiFi + BLE, 38 GPIO, ADC 12-bit, RS485, MQTT",
         "specs": {
@@ -207,7 +220,7 @@ DEVICES = [
         "name": "Cảm Biến Lưu Lượng YF-G1",
         "model": "YF-G1",
         "category": "CẢM BIẾN LƯU LƯỢNG",
-        "cat_color": "#2ec4b6",
+        "cat_color": "var(--sm-net)",
         "image": "/static/device_images/device_3_image10.jpeg",
         "short": "Dải đo: 1–30 L/phút, Kết nối G1″, Tín hiệu xung Hall effect",
         "specs": {
@@ -232,7 +245,7 @@ DEVICES = [
         "name": "Cảm Biến Áp Suất TITEC",
         "model": "TITEC – Germany",
         "category": "CẢM BIẾN ÁP SUẤT",
-        "cat_color": "#2196f3",
+        "cat_color": "var(--sm-info)",
         "image": "/static/device_images/device_4_image11.jfif",
         "short": "Tín hiệu: 4–20mA, Dải đo: 0–10 Bar, Nguồn: 24VDC, IP67",
         "specs": {
@@ -257,7 +270,7 @@ DEVICES = [
         "name": "Node IoT giám sát môi trường",
         "model": "Custom ESP32 Node",
         "category": "NODE IOT",
-        "cat_color": "#20bf6b",
+        "cat_color": "var(--sm-ok)",
         "image": "/static/device_images/device_12_image12.png",
         "short": "ESP32 + SHT20 + ES-SM-THEC-01, WiFi MQTT, chu kỳ 10 giây",
         "specs": {
@@ -273,182 +286,200 @@ DEVICES = [
     },
 ]
 
-CARD_CSS = """
-.device-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 24px;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.device-card {
-    width: 100%;
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transition: box-shadow 0.2s, transform 0.15s;
-}
-.device-card:hover {
-    box-shadow: 0 6px 24px rgba(0,0,0,0.13);
-    transform: translateY(-2px);
-}
-
-.device-img-wrap {
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    background: #f8f9fc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    padding: 16px;
-}
-.device-img-wrap img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-}
-
-.device-card-body {
-    padding: 14px 16px 16px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-.device-cat {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-}
-.device-name {
-    font-size: 14px;
-    font-weight: 700;
-    color: #1a1a2e;
-    margin-bottom: 6px;
-    line-height: 1.4;
-}
-.device-short {
-    font-size: 11px;
-    color: #aaa;
-    line-height: 1.5;
-    flex: 1;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-}
-.device-btn {
-    margin-top: 14px;
-    padding: 9px 0;
-    background: white;
-    border: 1.5px solid #e0e0e0;
-    border-radius: 10px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #1a1a2e;
-    text-align: center;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-.device-btn:hover {
-    background: #f0f4ff;
-    border-color: #4361ee;
-    color: #4361ee;
-}
+DEVICE_CSS = """
+.dev-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+           padding: 12px; margin: 16px 0; background: var(--sm-sunken);
+           border: 1px solid var(--sm-net-soft); border-radius: var(--sm-r-m); }
+.dev-search { width: 100%; max-width: 360px; }
+.dev-chip { border: 1px solid var(--sm-net-soft); border-radius: var(--sm-r-s); background: var(--sm-surface);
+            color: var(--sm-ink-2); font-size: 12px; font-weight: 600; padding: 4px 12px; }
+.dev-chip.on { background: var(--sm-vine); border-color: var(--sm-vine); color: var(--sm-surface); }
+.device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.device-card { display: flex; flex-direction: column; min-width: 0; background: var(--sm-surface);
+               border: 1px solid var(--sm-net-soft); border-radius: var(--sm-r-m); overflow: hidden; }
+.device-img-wrap { width: 100%; aspect-ratio: 1 / 1; background: var(--sm-sunken); display: flex;
+                   align-items: center; justify-content: center; padding: 16px; overflow: hidden; }
+.device-img-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.device-card-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.device-cat { font-size: 11px; font-weight: 600; }
+.device-name { font-size: 14px; font-weight: 700; color: var(--sm-ink); line-height: 1.4; }
+.device-short { font-size: 12px; color: var(--sm-ink-3); line-height: 1.5; flex: 1;
+                display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.device-btn { margin-top: 12px; width: 100%; border: 1px solid var(--sm-net); border-radius: var(--sm-r-s);
+              color: var(--sm-ink); font-size: 12px; font-weight: 600; }
+.dev-detail { display: grid; grid-template-columns: 300px minmax(0, 1fr); }
+.dev-detail-img { background: var(--sm-sunken); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.dev-detail-img img { max-width: 100%; max-height: 100%; object-fit: contain; background: var(--sm-surface); }
+.dev-detail-info { padding: 24px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dev-note { font-size: 13px; color: var(--sm-ink-2); line-height: 1.5; }
+.dev-block { display: flex; flex-direction: column; gap: 6px; }
+.velxio-panel { margin: 16px 0 20px; padding: 16px; border: 1px solid var(--sm-net-soft); border-radius: var(--sm-r-m); background: linear-gradient(135deg, var(--sm-surface), var(--sm-sunken)); }
+.velxio-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.velxio-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.velxio-card { padding:14px; border:1px solid var(--sm-net-soft); border-radius:var(--sm-r-s); background:var(--sm-surface); min-width:0; }
+.velxio-title { display:flex; align-items:center; gap:8px; font-weight:700; color:var(--sm-ink); }
+.velxio-led { width:12px; height:12px; border-radius:50%; flex:0 0 auto; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 15%, transparent); }
+.velxio-led.ok { color:#159447; background:#22c55e; }
+.velxio-led.warn { color:#d97706; background:#f59e0b; }
+.velxio-led.bad { color:#dc2626; background:#ef4444; }
+.velxio-led.stale { color:#64748b; background:#94a3b8; }
+.velxio-meta { margin-top:8px; font-size:12px; line-height:1.5; color:var(--sm-ink-3); }
+.velxio-state { margin-top:8px; font-size:12px; font-weight:700; }
+.velxio-circuit { margin-top:14px; border:1px solid var(--sm-net-soft); border-radius:var(--sm-r-s); overflow:hidden; background:#10151b; }
+.velxio-circuit-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:10px 12px; background:#17202a; color:#f8fafc; }
+.velxio-circuit-head .sm-note { color:#cbd5e1; }
+.velxio-frame { display:block; width:100%; height:640px; border:0; background:#111827; }
+.velxio-frame-viewport { width:100%; height:640px; overflow:hidden; background:#111827; }
+.velxio-frame-viewport.pump-preview { height:820px; }
+.velxio-frame-viewport.pump-preview .velxio-frame { height:820px; }
+.velxio-frame-viewport .velxio-frame { width:1500px; max-width:none; }
+.velxio-circuit-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:9px 12px; background:#17202a; color:#cbd5e1; font-size:12px; }
+@media (max-width: 720px) { .dev-detail { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .velxio-frame, .velxio-frame-viewport { height: 520px; } .velxio-frame-viewport.pump-preview, .velxio-frame-viewport.pump-preview .velxio-frame { height: 760px; } }
+@media (max-width: 720px) { .velxio-frame-viewport .velxio-frame { width:1100px; } }
 """
 
+# Project public thật trên Velxio; đây là mạch ESP32 + DHT22 + cảm biến đất
+# được mở từ gói Velxio của SMIOT, không phải ảnh minh họa dựng lại trong app.
+VELXIO_PROJECT_URL = "https://velxio.dev/project/a652dc2a-b9f0-4923-8e82-4624509fc39f"
+VELXIO_DIRECT_URL = VELXIO_PROJECT_URL
+VELXIO_EMBED_URL = "https://velxio.dev/embed/a652dc2a-b9f0-4923-8e82-4624509fc39f"
+VELXIO_PUMP_DIRECT_URL = "https://velxio.dev/project/449b7fc8-4980-494e-97b2-b0b43a5281f7"
+VELXIO_PUMP_EMBED_URL = "https://velxio.dev/embed/449b7fc8-4980-494e-97b2-b0b43a5281f7"
+VELXIO_FLOW_DIRECT_URL = "https://velxio.dev/project/fdc6b941-ade1-4859-8cd9-ef85b3b4598b"
+VELXIO_FLOW_EMBED_URL = "https://velxio.dev/embed/fdc6b941-ade1-4859-8cd9-ef85b3b4598b"
 
-def show_device_detail(device):
-    """Mở dialog chi tiết thiết bị theo form tham chiếu với thiết kế responsive."""
-    with ui.dialog() as dlg, ui.card().classes("p-0").style(
-        "width:820px;max-width:95vw;max-height:90vh;"
-        "border-radius:20px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25)"
+
+def tidy(text: str) -> str:
+    """Tiêu đề viết hoa toàn bộ trong dữ liệu -> chữ thường, chỉ viết hoa chữ đầu."""
+    return text[:1].upper() + text[1:].lower() if text else ""
+
+
+def _velxio_snapshot(farm_key: str) -> list[dict]:
+    """Đọc mẫu mới nhất từ MongoDB; không dựng trạng thái live cố định."""
+    now = datetime.now().astimezone()
+    try:
+        n1, n2, flow = (get_latest_node(farm_key, 1), get_latest_node(farm_key, 2), get_latest_flow(farm_key))
+    except Exception:
+        n1 = n2 = flow = None
+    rows = []
+    for key, label, record, detail in (
+        ("node1", "Node 1 · môi trường", n1, "Nhiệt độ/độ ẩm không khí và đất"),
+        ("node2", "Node 2 · đất", n2, "Độ ẩm đất và EC"),
+        ("flow", "Flow monitor · bơm", flow, "Lưu lượng và phản hồi đường ống"),
     ):
-        # Responsive 2-column layout: stacked on mobile, side-by-side on desktop
-        with ui.element("div").classes("grid grid-cols-1 md:grid-cols-[320px_1fr] min-h-[460px] w-full"):
-            
-            # ── LEFT: Device Image ──────────────────────────────
-            with ui.element("div").classes("bg-slate-50 flex items-center justify-center p-6 md:p-8"):
-                with ui.element("div").style(
-                    "background:white;padding:24px;border-radius:8px;"
-                    "box-shadow:0 4px 14px rgba(0,0,0,0.05);width:100%;"
-                    "aspect-ratio:1/1;display:flex;align-items:center;justify-content:center"
-                ):
-                    ui.image(device["image"]).style(
-                        "max-width:100%;max-height:100%;object-fit:contain"
-                    )
+        ts = (record or {}).get("received_at") or (record or {}).get("timestamp")
+        age = None
+        if ts:
+            try:
+                parsed = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=now.tzinfo)
+                age = max(0.0, (now - parsed).total_seconds())
+            except (TypeError, ValueError):
+                age = None
+        if record is None or age is None:
+            state, state_label = "stale", "Chưa có mẫu gần đây"
+        elif age > 180:
+            state, state_label = "stale", f"Mẫu đã cũ {int(age)} giây"
+        elif age > 60:
+            state, state_label = "warn", f"Mẫu chậm {int(age)} giây"
+        else:
+            state, state_label = "ok", "Đang nhận mẫu"
+        rows.append({"key": key, "label": label, "detail": detail, "state": state,
+                     "state_label": state_label, "record": record})
+    return rows
 
-            # ── RIGHT: Info ─────────────────────────────────────
-            with ui.element("div").classes("p-6 md:p-8 flex flex-col relative bg-white"):
-                # Close × button
-                ui.button("✕", on_click=dlg.close).style(
-                    "position:absolute;top:16px;right:16px;"
-                    "background:none;border:none;font-size:20px;"
-                    "color:#64748b;cursor:pointer;padding:4px 8px;"
-                    "line-height:1"
-                ).props("flat dense")
 
-                # Category label
-                ui.label(device["category"]).style(
-                    f"font-size:11px;font-weight:800;letter-spacing:.08em;"
-                    f"text-transform:uppercase;color:{device.get('cat_color', '#2563eb')};"
-                    f"margin-bottom:8px"
-                )
+def _latest_device_command(farm_key: str) -> dict | None:
+    try:
+        return collection("action_ledger").find_one(
+            {"farm_key": farm_key},
+            {"_id": 0, "command_id": 1, "state": 1, "action_code": 1, "incident_id": 1,
+             "scenario_run_id": 1, "updated_at": 1, "acknowledged_at": 1, "verified_at": 1},
+            sort=[("updated_at", -1)],
+        )
+    except Exception:
+        return None
 
-                # Device name
-                ui.label(device["name"]).style(
-                    "font-size:24px;font-weight:800;color:#0f172a;"
-                    "line-height:1.2;margin-bottom:16px"
-                )
 
-                # Brand & Model
-                ui.label("THƯƠNG HIỆU & MODEL").style(
-                    "font-size:10px;font-weight:700;color:#94a3b8;"
-                    "letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px"
-                )
+def _latest_velxio_profile_events(farm_key: str) -> dict[str, dict]:
+    try:
+        events = collection("device_profile_events").find(
+            {"farm_key": farm_key, "source": "velxio_synthetic", "synthetic": True},
+            {"_id": 0, "node_id": 1, "profile": 1, "dataset_id": 1, "applied": 1,
+             "verified": 1, "incident_id": 1, "scenario_run_id": 1, "timestamp": 1,
+             "received_at": 1},
+        ).sort("received_at", -1).limit(30)
+        return {str(row.get("node_id")): row for row in events if row.get("node_id")}
+    except Exception:
+        return {}
+
+
+def device_shortcut(device: dict) -> tuple[str, str] | None:
+    """Lối tắt tới trang điều khiển liên quan: biến tần, hoặc PLC và bơm."""
+    category = device.get("category", "").upper()
+    if "INVERTER" in category or "BIẾN TẦN" in category:
+        return "Mở trang biến tần", "/inverter"
+    if "PLC" in category or "LOGIC" in category or "EXPANSION" in category:
+        return "Mở trang PLC và bơm", "/plc"
+    return None
+
+
+def calibration_chip(device: dict, today: date):
+    """Chip hạn hiệu chuẩn, tính từ ngày thật. Trả về None nếu thiết bị không có hiệu chuẩn."""
+    cal = device.get("calibration")
+    if not cal:
+        return None
+    try:
+        due = datetime.strptime(cal["next"], "%d/%m/%Y").date()
+    except (KeyError, ValueError):
+        return status_chip("none", "Chưa rõ hạn hiệu chuẩn")
+    days = (due - today).days
+    if days < 0:
+        return status_chip("watch", f"Quá hạn hiệu chuẩn {-days} ngày")
+    return status_chip("watch" if days <= 30 else "ok", f"Còn {days} ngày")
+
+
+def show_device_detail(device: dict):
+    """Hồ sơ chi tiết thiết bị trong hộp thoại."""
+    today = date.today()
+    with ui.dialog() as dlg, ui.card().props("flat bordered").style(
+            "width:820px;max-width:95vw;max-height:90vh;padding:0;overflow:auto"):
+        with ui.element("div").classes("dev-detail"):
+            with ui.element("div").classes("dev-detail-img"):
+                ui.image(device["image"]).style("max-width:100%;max-height:100%;object-fit:contain")
+
+            with ui.element("div").classes("dev-detail-info"):
+                with ui.row().classes("w-full items-start justify-between no-wrap"):
+                    ui.label(tidy(device["category"])).classes("device-cat").style(f"color:{device['cat_color']}")
+                    ui.button(icon="close", on_click=dlg.close).props("flat round dense")
+                ui.label(device["name"]).classes("sm-h2")
+                ui.label("Thương hiệu và model").classes("sm-note")
                 brand_name = device.get("brand", device["name"].split()[0] if device["name"] else "")
-                ui.label(f"{brand_name} - {device['model']}").style(
-                    "font-size:15px;font-weight:500;color:#334155;margin-bottom:20px"
-                )
+                ui.label(f"{brand_name} - {device['model']}").style("font-size:14px;color:var(--sm-ink)")
 
-                # Specs box
-                ui.label("THÔNG SỐ KỸ THUẬT CHI TIẾT").style(
-                    "font-size:10px;font-weight:700;color:#94a3b8;"
-                    "letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px"
-                )
-                specs_text = ", ".join(f"{k}: {v}" for k, v in device["specs"].items())
-                with ui.element("div").classes("bg-blue-50/50 border border-blue-100/30 rounded-xl p-4 mb-4"):
-                    ui.label(specs_text).style(
-                        "font-size:13px;color:#1d4ed8;line-height:1.6;"
-                        "font-style:italic"
-                    )
+                ui.label("Thông số kỹ thuật").classes("sm-note")
+                facts(device["specs"].items())
 
-                # Calibration Info (nếu có)
                 if "calibration" in device:
-                    ui.label("THÔNG TIN HIỆU CHUẨN").style(
-                        "font-size:10px;font-weight:700;color:#94a3b8;"
-                        "letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px"
-                    )
                     cal = device["calibration"]
-                    with ui.element("div").classes("bg-purple-50/70 border border-purple-100/50 rounded-xl p-3 mb-5"):
-                        with ui.row().classes("w-full justify-between items-center mb-1"):
-                            ui.label(f"📅 Hiệu chuẩn cuối: {cal['last']}").style("font-size:12px;font-weight:700;color:#6b21a8")
-                            ui.label(f"🔄 Chu kỳ: {cal['cycle']}").style("font-size:12px;font-weight:700;color:#6b21a8")
-                        ui.label(f"🎯 Khuyên dùng: {cal['guide']}").style("font-size:11px;color:#7e22ce;line-height:1.4;font-style:italic")
+                    with ui.element("div").classes("dev-block"):
+                        ui.label("Hiệu chuẩn").classes("sm-note")
+                        calibration_chip(device, today)
+                        facts([("Hiệu chuẩn gần nhất", cal["last"]),
+                               ("Chu kỳ", cal["cycle"]),
+                               ("Đến hạn", cal["next"]),
+                               ("Hướng dẫn", cal["guide"])])
 
-                # Close button
-                ui.button("Đóng cửa sổ", on_click=dlg.close).style(
-                    "width:100%;background:#0f172a;color:white;"
-                    "border-radius:12px;font-size:14px;font-weight:600;"
-                    "padding:12px 0;cursor:pointer"
-                ).props("flat")
+                ui.label(device["description"]).classes("dev-note")
 
+                shortcut = device_shortcut(device)
+                if shortcut:
+                    ui.link(shortcut[0], shortcut[1]).classes("sm-link")
+
+                ui.button("Đóng", on_click=dlg.close).props("unelevated no-caps").classes("sm-btn").style(
+                    "align-self:flex-end;margin-top:auto")
     dlg.open()
 
 
@@ -457,128 +488,204 @@ def show_device_detail(device):
 # ─────────────────────────────────────────────
 @ui.page("/devices")
 def trang_devices():
-    if not check_login(): return
-    
-    ui.add_head_html(f"<style>{CUSTOM_CSS}{CARD_CSS}</style>")
+    if not check_login():
+        return
+
+    ui.add_head_html(f"<style>{CUSTOM_CSS}{DEVICE_CSS}</style>")
     sidebar(active="Device")
 
     with ui.element("div").classes("main-content"):
-        # Top bar
-        global_topbar("Quản Lý Thiết Bị", "📱")
+        global_topbar("Thiết bị", "")
 
         with ui.element("div").classes("content-area"):
-            # Title
-            ui.label("Danh Mục Thiết Bị Hệ Thống").style(
-                "font-size:22px;font-weight:800;color:#1a1a2e;text-align:center;"
-                "margin-bottom:4px"
+            slot = page_header(
+                "Thiết bị",
+                "Danh mục thiết bị của hệ thống SMIOT.",
             )
-            ui.label(
-                "Danh sách các thiết bị phần cứng, cảm biến và bộ điều khiển trong hệ thống IoT."
-            ).style(
-                "font-size:13px;color:#aaa;text-align:center;margin-bottom:24px"
-            )
+            with slot:
+                sim_badge()
+            ui.label("Đây là hồ sơ thông số tham khảo của thiết bị ảo, không phải phần cứng lắp đặt "
+                     "tại nhà màng.").classes("sm-note")
 
-            # State lưu thông tin tìm kiếm & bộ lọc
+            # Mạch Velxio là vùng tĩnh: không đặt iframe trong refreshable,
+            # nếu không mỗi lần đọc MongoDB lại phá phiên mô phỏng và để lại khoảng trắng.
+            def velxio_circuit_panel():
+                with ui.element("section").classes("velxio-panel"):
+                    with ui.element("div").classes("velxio-head"):
+                        with ui.element("div"):
+                            ui.label("Thiết bị trình diễn · Velxio").classes("sm-h3")
+                            ui.label("Bản xem sơ đồ Velxio. Muốn chạy mô phỏng và xem đèn/còi, mở mạch riêng trên Velxio bên dưới.").classes("sm-note")
+                        ui.link("Mở điều khiển PLC", "/plc").classes("sm-link")
+                    with ui.element("div").classes("velxio-circuit"):
+                        with ui.element("div").classes("velxio-circuit-head"):
+                            with ui.element("div"):
+                                ui.label("Sơ đồ mạch (xem trước)").classes("sm-h3")
+                                ui.label("Khung này chỉ xem sơ đồ; phiên chạy và điều khiển nằm trên trang Velxio riêng.").classes("sm-note")
+                        with ui.tabs().classes("w-full bg-slate-800 text-white") as circuit_tabs:
+                            environment_tab = ui.tab("Node 1 · cảm biến")
+                            pump_tab = ui.tab("Node 2 · bơm và LED")
+                            flow_tab = ui.tab("Node 3 · lưu lượng")
+                        with ui.tab_panels(circuit_tabs, value=environment_tab).classes("w-full p-0"):
+                            with ui.tab_panel(environment_tab).classes("p-0"):
+                                with ui.element("div").classes("velxio-frame-viewport"):
+                                    ui.html(
+                                        f'<iframe class="velxio-frame" src="{VELXIO_EMBED_URL}" '
+                                        'title="Mạch cảm biến Velxio SMIOT" allow="autoplay; clipboard-read; clipboard-write"></iframe>',
+                                        sanitize=False,
+                                    )
+                            with ui.tab_panel(pump_tab).classes("p-0"):
+                                with ui.element("div").classes("velxio-frame-viewport pump-preview"):
+                                    ui.html(
+                                        f'<iframe class="velxio-frame" src="{VELXIO_PUMP_EMBED_URL}" '
+                                        'title="Mạch bơm và LED Velxio SMIOT" allow="autoplay; clipboard-read; clipboard-write"></iframe>',
+                                        sanitize=False,
+                                    )
+                            with ui.tab_panel(flow_tab).classes("p-0"):
+                                if VELXIO_FLOW_EMBED_URL:
+                                    with ui.element("div").classes("velxio-frame-viewport"):
+                                        ui.html(
+                                            f'<iframe class="velxio-frame" src="{VELXIO_FLOW_EMBED_URL}" '
+                                            'title="Mạch lưu lượng Velxio SMIOT" allow="autoplay; clipboard-read; clipboard-write"></iframe>',
+                                            sanitize=False,
+                                        )
+                                else:
+                                    with ui.element("div").classes("velxio-frame-viewport"):
+                                        ui.label("Mạch Node 3 đang được chuẩn bị trong Velxio.").classes("sm-note")
+                        with ui.element("div").classes("velxio-circuit-foot"):
+                            ui.label("Mô phỏng phải chạy riêng trên Velxio; chọn đúng mạch tương ứng với node cần trình diễn.")
+                            ui.link("Mở mạch cảm biến ↗", VELXIO_DIRECT_URL).props("target=_blank").classes("sm-link")
+                            ui.link("Mở mạch bơm ↗", VELXIO_PUMP_DIRECT_URL).props("target=_blank").classes("sm-link")
+                            if VELXIO_FLOW_DIRECT_URL:
+                                ui.link("Mở mạch lưu lượng ↗", VELXIO_FLOW_DIRECT_URL).props("target=_blank").classes("sm-link")
+
+            velxio_circuit_panel()
+
+            # Trạng thái MongoDB cập nhật định kỳ, tách khỏi iframe để không reload mạch.
+            @ui.refreshable
+            def velxio_demo_panel():
+                farm_key = app.storage.user.get("current_farm", "greenhouse_a")
+                farm_label = FARM_LABELS.get(farm_key, farm_key)
+                snapshot = _velxio_snapshot(farm_key)
+                latest_cmd = _latest_device_command(farm_key)
+                profile_events = _latest_velxio_profile_events(farm_key)
+                with ui.element("section").classes("velxio-panel"):
+                    with ui.element("div").classes("velxio-head"):
+                        with ui.element("div"):
+                            ui.label(f"Trạng thái thiết bị · {farm_label}").classes("sm-h3")
+                            ui.label("Dữ liệu đọc từ MongoDB, tự làm mới mỗi 10 giây").classes("sm-note")
+                        ui.link("Mở điều khiển PLC", "/plc").classes("sm-link")
+                    with ui.element("div").classes("velxio-grid"):
+                        for item in snapshot:
+                            record = item["record"] or {}
+                            readings = (record.get("readings") or record) if isinstance(record, dict) else {}
+                            with ui.element("article").classes("velxio-card"):
+                                with ui.element("div").classes("velxio-title"):
+                                    ui.element("span").classes(f"velxio-led {item['state']}")
+                                    ui.label(item["label"])
+                                ui.label(item["detail"]).classes("velxio-meta")
+                                if item["key"] in {"node1", "node2"}:
+                                    ui.label(
+                                        f"Nhiệt độ {readings.get('air_temp', readings.get('air_temp_c', '—'))} °C · Ẩm đất {readings.get('soil_hum', '—')} %"
+                                    ).classes("velxio-meta")
+                                else:
+                                    ui.label(
+                                        f"Lưu lượng {readings.get('flow_f1', '—')} L/ph · Tổng {readings.get('flow_t1', '—')} L"
+                                    ).classes("velxio-meta")
+                                ui.label(item["state_label"]).classes("velxio-state").style(
+                                    f"color:{ {'ok':'#159447','warn':'#b45309','stale':'#64748b'}.get(item['state'], '#64748b')}"
+                                )
+                                profile = profile_events.get(item["key"], {})
+                                if profile:
+                                    profile_label = "Bộ lỗi" if profile.get("profile") == "fault" else "Bộ bình thường"
+                                    profile_result = "đã xác nhận" if profile.get("verified") else "chưa xác minh"
+                                    ui.label(f"{profile_label} · {profile.get('dataset_id') or '—'} · {profile_result}").classes("velxio-meta")
+                                else:
+                                    ui.label("Bộ dữ liệu: chưa nhận ACK từ Velxio").classes("velxio-meta")
+                    if latest_cmd:
+                        cmd_state = str(latest_cmd.get("state") or "unknown")
+                        incident = latest_cmd.get("incident_id") or latest_cmd.get("scenario_run_id")
+                        suffix = f" · mã {incident}" if incident else ""
+                        ui.label(f"Lệnh gần nhất: {latest_cmd.get('action_code') or '—'} · {cmd_state}{suffix}").classes("velxio-meta")
+                    else:
+                        ui.label("Chưa có lệnh gần nhất trong sổ lệnh của farm này.").classes("velxio-meta")
+
+            velxio_demo_panel()
+            ui.timer(10.0, velxio_demo_panel.refresh)
+
             filter_state = {"search": "", "category": "Tất cả"}
+            categories = ["Tất cả", "Cảm biến", "Gateway", "Điều khiển"]
+            cat_map = {
+                "Cảm biến": ["CẢM BIẾN", "SENSOR"],
+                "Gateway": ["GATEWAY", "IOT MODULE", "NODE IOT", "VI ĐIỀU KHIỂN"],
+                "Điều khiển": ["INVERTER", "PLC", "LOGIC MODULE", "EXPANSION MODULE", "BIẾN TẦN"],
+            }
+
+            def pick_category(cat: str):
+                filter_state["category"] = cat
+                category_chips.refresh()
+                device_grid.refresh()
+
+            def on_search(e):
+                filter_state["search"] = e.value or ""
+                device_grid.refresh()
+
+            with ui.element("div").classes("dev-bar"):
+                ui.input(placeholder="Tìm thiết bị, model, tính năng", value="", on_change=on_search) \
+                    .props("outlined dense clearable").classes("dev-search")
+
+                @ui.refreshable
+                def category_chips():
+                    with ui.row().classes("items-center gap-2 flex-wrap"):
+                        for cat in categories:
+                            active = filter_state["category"] == cat
+                            ui.button(cat, on_click=lambda c=cat: pick_category(c)) \
+                                .props("flat no-caps dense") \
+                                .classes("dev-chip on" if active else "dev-chip")
+
+                category_chips()
 
             @ui.refreshable
-            def render_device_section():
-                search_query = filter_state["search"]
+            def device_grid():
+                search_query = filter_state["search"].strip().lower()
                 selected_cat = filter_state["category"]
-
-                # Thanh bộ lọc và tìm kiếm (đặt bên trong refreshable để cập nhật trạng thái highlight)
-                with ui.row().classes("w-full justify-between items-center gap-4 mb-6 bg-slate-50 p-3 rounded-2xl border border-slate-100"):
-                    # Ô tìm kiếm
-                    ui.input(
-                        placeholder="Tìm thiết bị, model, tính năng...",
-                        value=filter_state["search"],
-                        on_change=lambda e: (filter_state.update({"search": e.value}), render_device_section.refresh())
-                    ).props("outlined dense clearable").classes("w-full md:w-80 bg-white rounded-lg shadow-sm").style("font-size:13px")
-                    
-                    # Bộ lọc Chips
-                    with ui.row().classes("items-center gap-2 flex-wrap"):
-                        categories = ["Tất cả", "Cảm biến", "Gateway", "Điều khiển"]
-                        for cat in categories:
-                            is_active = (selected_cat == cat)
-                            btn_style = "background: #3b82f6; color: white" if is_active else "background: white; color: #64748b"
-                            btn_classes = "font-bold text-[11px] px-3 border border-slate-200"
-                            if not is_active: btn_classes += " hover:border-blue-400 hover:text-blue-500"
-                            
-                            # Closure capturing
-                            ui.button(
-                                cat,
-                                on_click=lambda c=cat: (filter_state.update({"category": c}), render_device_section.refresh())
-                            ).style(btn_style).classes(btn_classes).props("rounded unelevated size=sm")
-
-                # Lọc danh sách thiết bị
                 filtered = DEVICES
                 if search_query:
-                    q = search_query.lower()
                     filtered = [
-                        d for d in filtered 
-                        if q in d["name"].lower() 
-                        or q in d["model"].lower() 
-                        or q in d["category"].lower() 
-                        or q in d["description"].lower() 
-                        or q in d["short"].lower()
+                        d for d in filtered
+                        if search_query in d["name"].lower()
+                        or search_query in d["model"].lower()
+                        or search_query in d["category"].lower()
+                        or search_query in d["description"].lower()
+                        or search_query in d["short"].lower()
                     ]
-                
                 if selected_cat != "Tất cả":
-                    cat_map = {
-                        "Cảm biến": ["CẢM BIẾN", "SENSOR"],
-                        "Gateway": ["GATEWAY", "IOT MODULE", "NODE IOT", "VI ĐIỀU KHIỂN"],
-                        "Điều khiển": ["INVERTER", "PLC", "LOGIC MODULE", "EXPANSION MODULE", "BIẾN TẦN"]
-                    }
                     sub_keywords = cat_map.get(selected_cat, [])
                     filtered = [
-                        d for d in filtered 
+                        d for d in filtered
                         if any(kw in d["category"].upper() or kw in d["name"].upper() for kw in sub_keywords)
                     ]
 
                 if not filtered:
-                    with ui.column().classes("w-full items-center py-12 text-slate-400"):
-                        ui.icon("inventory_2", size="48px").classes("mb-2")
-                        ui.label("Không tìm thấy thiết bị nào phù hợp").classes("text-sm font-bold")
+                    state_panel("empty", "Không tìm thấy thiết bị phù hợp",
+                                "Thử từ khóa khác hoặc chọn nhóm Tất cả.")
                     return
 
-                # 4-column card grid
+                today = date.today()
                 with ui.element("div").classes("device-grid"):
                     for d in filtered:
-                        with ui.element("div").classes("device-card"):
-                            # Image square
+                        with ui.element("article").classes("device-card"):
                             with ui.element("div").classes("device-img-wrap"):
-                                ui.image(d["image"]).style(
-                                    "max-width:100%;max-height:100%;object-fit:contain"
-                                )
-
-                            # Body text
+                                ui.image(d["image"]).style("max-width:100%;max-height:100%;object-fit:contain")
                             with ui.element("div").classes("device-card-body"):
-                                ui.label(d["category"]).style(
-                                    f"font-size:10px;font-weight:700;letter-spacing:.08em;"
-                                    f"text-transform:uppercase;color:{d['cat_color']};margin-bottom:6px"
-                                )
-                                ui.label(d["name"]).style(
-                                    "font-size:14px;font-weight:700;color:#1a1a2e;"
-                                    "margin-bottom:6px;line-height:1.4"
-                                )
-                                ui.label(d["short"]).style(
-                                    "font-size:11px;color:#aaa;line-height:1.5;"
-                                    "overflow:hidden;display:-webkit-box;"
-                                    "-webkit-line-clamp:3;-webkit-box-orient:vertical;flex:1"
-                                )
+                                ui.label(tidy(d["category"])).classes("device-cat").style(f"color:{d['cat_color']}")
+                                ui.label(d["name"]).classes("device-name")
+                                ui.label(d["short"]).classes("device-short")
+                                with ui.row().classes("items-center gap-2 flex-wrap").style("margin-top:6px"):
+                                    calibration_chip(d, today)
+                                shortcut = device_shortcut(d)
+                                if shortcut:
+                                    ui.link(shortcut[0], shortcut[1]).classes("sm-link").style("font-size:12px")
+                                ui.button("Xem chi tiết", on_click=lambda dev=d: show_device_detail(dev)) \
+                                    .props("flat no-caps").classes("device-btn")
 
-                                # Nút xem chi tiết
-                                device_ref = d  # capture for closure
-                                ui.button(
-                                    "Xem chi tiết",
-                                    on_click=lambda dev=device_ref: show_device_detail(dev)
-                                ).style(
-                                    "margin-top:14px;padding:9px 0;background:white;"
-                                    "border:1.5px solid #e0e0e0;border-radius:10px;"
-                                    "font-size:12px;font-weight:600;color:#1a1a2e;"
-                                    "text-align:center;cursor:pointer;width:100%;"
-                                    "transition:background 0.15s,border-color 0.15s"
-                                ).props("flat")
-
-            # Render ban đầu cho phần thiết bị
-            render_device_section()
+            device_grid()

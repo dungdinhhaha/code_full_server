@@ -1,0 +1,56 @@
+{
+  "additionalProperties": {
+    "created_at": 1793728282000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-06T03:14:43+00:00"
+  },
+  "created": "2026-11-03T17:51:22.347Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245830
+    },
+    "email": "tiendung54.be@gmail.com",
+    "handle": "tiendung54.be@gmail.com",
+    "name": "Dũng Tiến"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 340356283,
+  "matchingDowntimes": [],
+  "message": "{{#is_alert}}\r\nEC2 server incident: smiot.service is inactive on i-00bf2d3591d3ee0a2. New farm data and the melon harvest estimate may stop updating.\r\nCheck EC2 and Datadog Agent health, then inspect SMIOT logs/APM and MongoDB/MQTT dependencies. Do not restart MongoDB or operate pumps.\r\nRecovery action is restricted to smiot.service, guarded by a local health check, cooldown and HTTP verification.\r\n@workflow-Dũng-Nov-04-2026-1601\r\n{{/is_alert}}\r\n{{#is_recovery}}\r\nsmiot.service is active again. Confirm app health, a successful trace and a newer telemetry record persisted in MongoDB before closing the incident.\r\n{{/is_recovery}}",
+  "modified": "2026-11-04T09:39:54.619Z",
+  "multi": false,
+  "name": "SMIOT | EC2 app service inactive",
+  "options": {
+    "includeTags": false,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "onMissingData": "default",
+    "silenced": {},
+    "thresholds": {
+      "critical": 0
+    }
+  },
+  "overallState": "OK",
+  "priority": 2,
+  "query": "avg(last_5m):avg:systemd.unit.active{host:i-00bf2d3591d3ee0a2,unit:smiot.service} <= 0",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "*": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": 1793934823,
+        "lastResolvedTs": 1793934823,
+        "lastTriggeredTs": 1793934703,
+        "name": "*",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm"
+  ],
+  "type": "query alert"
+}

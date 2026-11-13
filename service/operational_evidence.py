@@ -10,6 +10,10 @@ from service.mongodb_store import collection
 
 STATES = {"requested", "published", "acknowledged", "failed", "verified"}
 ORDER = {"requested": 1, "published": 2, "acknowledged": 3, "verified": 4, "failed": 5}
+# Single source of truth for action_ledger.action. incident_blackbox's $jsonSchema
+# validator imports this tuple so runtime and schema cannot drift apart.
+LEDGER_ACTIONS = ("HOLD", "CLEAR", "SAFE_STOP", "SET_OUTPUTS", "SET_VALVE", "SET_VENT", "SET_INVERTER")
+LEDGER_ACTION_SET = frozenset(LEDGER_ACTIONS)
 
 
 def record_action_event(payload: dict[str, Any], event_state: str) -> bool:
@@ -20,16 +24,18 @@ def record_action_event(payload: dict[str, Any], event_state: str) -> bool:
     if not command_id or len(command_id) > 200:
         raise ValueError("command_id is required")
     action = str(payload.get("action", ""))
-    if action not in {"HOLD", "CLEAR"}:
-        raise ValueError("only the virtual HOLD/CLEAR actions are accepted")
+    if action not in LEDGER_ACTION_SET:
+        raise ValueError("unsupported safety action")
     farm_key = str(payload.get("farm_key", "greenhouse_a"))
-    if farm_key not in {"greenhouse_a", "greenhouse_b", "greenhouse_c", "greenhouse_d"}:
+    from service.farm_registry import FARM_KEYS
+    if farm_key not in FARM_KEYS:
         raise ValueError("invalid farm scope for action ledger")
+    raw_node = payload.get("node_id", 2)
     try:
-        node_id = int(payload.get("node_id", 2))
+        node_id = int(raw_node) if raw_node is not None else None
     except (TypeError, ValueError):
         raise ValueError("invalid node scope for action ledger")
-    if node_id not in {1, 2}:
+    if node_id is not None and node_id not in {1, 2}:
         raise ValueError("invalid node scope for action ledger")
     now = datetime.now(timezone.utc)
     ledger = collection("action_ledger")
@@ -71,6 +77,9 @@ def record_action_event(payload: dict[str, Any], event_state: str) -> bool:
     elif event_state == "acknowledged":
         doc["acknowledged_at"] = now
         doc["virtual_output"] = payload.get("virtual_output")
+        doc["late_ack"] = bool(payload.get("late_ack", False))
+        doc["target_matches"] = payload.get("target_matches")
+        doc["ack_verified"] = payload.get("ack_verified")
     elif event_state == "failed":
         doc["failed_at"] = now
         doc["error"] = str(payload.get("error", ""))[:500]

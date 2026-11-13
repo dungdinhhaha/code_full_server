@@ -1,0 +1,6 @@
+Giờ chạy: 2026-11-06 02:36:19Z (09:36:19 ICT). Chỉ đọc.
+
+1) Datadog MCP (a09fec6e…) search_datadog_monitors, query: id:339977691 OR id:340356283 OR id:339977703 OR id:339990226 OR id:339990232 OR id:341409441
+2) Datadog MCP list_datadog_workflow_instances, workflowId 18d1b008-fb24-4713-aa0b-a1432d84ea80, sort -startTimestamp
+3) Browser: mở https://13-238-30-218.sslip.io/incident. Bị chuyển sang /login. Không nhập tài khoản hay mật khẩu.
+4) Browser: mở https://app.datadoghq.com/monitors/339977691. Trang trắng, không đọc được.

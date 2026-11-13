@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "scope": "W1,W2,W4",
+  "note": "Positive evidence/classification branches only. No PLC, pump, actuator, or service restart action was issued.",
+  "runs": [
+    {
+      "workflow": "W1",
+      "run_id": "89335ceb-7550-4d33-9aa7-88d31c2099ed",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> classify_evidence=true -> evidence_observed -> notify_smiot_app"
+    },
+    {
+      "workflow": "W2",
+      "run_id": "c7b78b62-7283-4017-b701-bf04bdc6fe0e",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> If_local_interlock_confirmed=true -> Echo_local_interlock_confirmed -> notify_smiot_app"
+    },
+    {
+      "workflow": "W4",
+      "run_id": "7c684d0b-3153-4ac6-97b3-155bfac31be2",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> classify_freshness=true -> refuse_restart_fresh_samples -> notify_smiot_app"
+    }
+  ],
+  "meaning": "The branches prove evidence classification and safe refusal/HOLD logic on synthetic signals. They do not claim physical sensor, PLC, or actuator recovery."
+}

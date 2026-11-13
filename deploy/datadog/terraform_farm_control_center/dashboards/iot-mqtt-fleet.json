@@ -1,0 +1,192 @@
+{
+  "description": "Device and MQTT pipeline view across the ten farm tags currently observed in Datadog.",
+  "layout_type": "ordered",
+  "reflow_type": "auto",
+  "notify_list": [],
+  "restricted_roles": [],
+  "tags": [
+    "team:smiot"
+  ],
+  "template_variables": [
+    {
+      "name": "farm",
+      "prefix": "farm",
+      "available_values": [
+        "greenhouse_a",
+        "greenhouse_b",
+        "greenhouse_c",
+        "greenhouse_d",
+        "greenhouse_e",
+        "greenhouse_f",
+        "greenhouse_g",
+        "greenhouse_h",
+        "greenhouse_i",
+        "greenhouse_j"
+      ],
+      "defaults": [
+        "*"
+      ]
+    }
+  ],
+  "title": "SMIOT | IoT & MQTT Fleet",
+  "widgets": [
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Soil humidity by farm and node",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.soil_humidity{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Air and soil temperature",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.air_temperature{$farm,source:smiot_demo_stream} by {farm}"
+              }
+            ]
+          },
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query2",
+                "query": "avg:smiot.telemetry.soil_temperature{$farm,source:smiot_demo_stream} by {farm}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Soil conductivity (EC)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.soil_ec{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Air humidity",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.air_humidity{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MQTT-to-app ingest lag (milliseconds)",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "avg:smiot.telemetry.ingest_lag_ms{$farm,source:smiot_demo_stream} by {farm,node}"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MongoDB-persisted sample rate",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "sum:smiot.telemetry.samples_persisted{$farm,source:smiot_demo_stream} by {farm}.as_rate()"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "MQTT dependency health",
+        "show_legend": true,
+        "legend_layout": "horizontal",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "data_source": "metrics",
+                "name": "query1",
+                "query": "min:smiot.dependency.mqtt.up{project:smiot}"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

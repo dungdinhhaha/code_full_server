@@ -1,0 +1,308 @@
+{
+  "steps": [
+    {
+      "display": {
+        "bounds": {
+          "y": 96,
+          "x": 0
+        }
+      },
+      "errorHandlers": [
+        {
+          "fallbackStepName": "escalate_query_failed",
+          "retryStrategy": {
+            "linear": {
+              "interval": "1s",
+              "maxRetries": 1
+            },
+            "kind": "RETRY_STRATEGY_LINEAR"
+          }
+        }
+      ],
+      "name": "read_operational_signals",
+      "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "verify_evidence_available"
+        }
+      ],
+      "parameters": [
+        {
+          "value": "10m",
+          "name": "range"
+        },
+        {
+          "value": [
+            {
+              "aggregator": "last",
+              "name": "soil_humidity",
+              "query": "avg:smiot.telemetry.soil_humidity{*}",
+              "data_source": "metrics"
+            },
+            {
+              "aggregator": "last",
+              "name": "sample_age_s",
+              "query": "max:smiot.telemetry.sample_age_seconds{*}",
+              "data_source": "metrics"
+            },
+            {
+              "aggregator": "last",
+              "name": "approved_envelope",
+              "query": "max:smiot.crop.envelope.approved{*}",
+              "data_source": "metrics"
+            },
+            {
+              "aggregator": "last",
+              "name": "stage_context_valid",
+              "query": "max:smiot.crop.stage_context.valid{*}",
+              "data_source": "metrics"
+            }
+          ],
+          "name": "queries"
+        },
+        {
+          "value": [
+            {
+              "formula": "soil_humidity"
+            },
+            {
+              "formula": "sample_age_s"
+            },
+            {
+              "formula": "approved_envelope"
+            },
+            {
+              "formula": "stage_context_valid"
+            }
+          ],
+          "name": "formulas"
+        }
+      ]
+    },
+    {
+      "name": "verify_evidence_available",
+      "actionId": "com.datadoghq.core.if",
+      "display": {
+        "bounds": {
+          "x": 0,
+          "y": 216
+        }
+      },
+      "parameters": [
+        {
+          "name": "joinOperator",
+          "value": "and"
+        },
+        {
+          "name": "conditions",
+          "value": [
+            {
+              "comparisonOperator": "eq",
+              "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const names=[\"soil_humidity\", \"sample_age_s\", \"approved_envelope\", \"stage_context_valid\"]; return names.every(k => { const v=Number(c.find(x=>x.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+              "rightValue": true
+            }
+          ]
+        }
+      ],
+      "outboundEdges": [
+        {
+          "branchName": "true",
+          "nextStepName": "classify_evidence"
+        },
+        {
+          "branchName": "false",
+          "nextStepName": "escalate_missing_evidence"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "x": 0,
+          "y": 384
+        }
+      },
+      "name": "classify_evidence",
+      "outboundEdges": [
+        {
+          "nextStepName": "evidence_observed",
+          "branchName": "true"
+        },
+        {
+          "nextStepName": "escalate_or_review",
+          "branchName": "false"
+        }
+      ],
+      "parameters": [
+        {
+          "value": "and",
+          "name": "joinOperator"
+        },
+        {
+          "value": [
+            {
+              "comparisonOperator": "eq",
+              "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const a=Number(c.find(x=>x.name===\"sample_age_s\")?.values?.[0]); const e=Number(c.find(x=>x.name===\"approved_envelope\")?.values?.[0]); const s=Number(c.find(x=>x.name===\"stage_context_valid\")?.values?.[0]); return Number.isFinite(a) && a>=0 && a<120 && e===1 && s===1; })() }",
+              "rightValue": true
+            }
+          ],
+          "name": "conditions"
+        }
+      ],
+      "actionId": "com.datadoghq.core.if"
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "evidence_observed",
+      "parameters": [
+        {
+          "value": "W7 | FRESH_INPUTS_FOR_REVIEW | Soil moisture sample is fresh. Compare it with the approved farm schedule and crop-stage envelope before any human-approved change. This workflow does not modify irrigation. | RECORD=workflow run and linked monitor event | VERIFY=check app action ledger and fresh telemetry before marking recovered; Echo is not recovery proof",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "escalate_or_review",
+      "parameters": [
+        {
+          "value": "W7 | SCHEDULE_CHANGE_BLOCKED | Soil-moisture evidence is stale or unavailable. Keep the existing safe schedule, check sensor/persistence, and escalate; no automatic irrigation change. | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "display": {
+        "bounds": {
+          "y": 552,
+          "x": 0
+        }
+      },
+      "name": "escalate_query_failed",
+      "parameters": [
+        {
+          "value": "SMIOT | W7 | Irrigation schedule evidence review | DECISION=UNKNOWN | EVIDENCE=QUERY_ERROR | ACTION=NONE | NEXT=OPERATOR | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+          "name": "value"
+        }
+      ],
+      "actionId": "com.datadoghq.core.echo",
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "name": "escalate_missing_evidence",
+      "actionId": "com.datadoghq.core.echo",
+      "display": {
+        "bounds": {
+          "x": 384,
+          "y": 552
+        }
+      },
+      "parameters": [
+        {
+          "name": "value",
+          "value": "W7 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+        }
+      ],
+      "outboundEdges": [
+        {
+          "branchName": "main",
+          "nextStepName": "notify_smiot_app"
+        }
+      ]
+    },
+    {
+      "name": "notify_smiot_app",
+      "actionId": "com.datadoghq.http.request",
+      "connectionLabel": "SMIOT_APP_HTTP",
+      "parameters": [
+        {
+          "name": "verb",
+          "value": "POST"
+        },
+        {
+          "name": "url",
+          "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+        },
+        {
+          "name": "requestHeaders",
+          "value": [
+            {
+              "key": "Content-Type",
+              "value": [
+                "application/json"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "body",
+          "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W7 irrigation schedule review completed. The workflow only recommends review and keeps irrigation decisions safe when soil-moisture evidence is missing or outside the approved envelope. Run {{InstanceId}} contains the evidence. Correlation remains unverified: this workflow context does not supply a verified incident, farm, or scenario-run ID.\",\"category\":\"datadog\",\"severity\":\"warning\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"investigating\",\"verification_status\":\"unknown\"}"
+        }
+      ],
+      "readinessGate": {
+        "thresholdType": "ANY"
+      }
+    }
+  ],
+  "handle": "smiot-w07-irrigation-schedule-review",
+  "triggers": [
+    {
+      "startStepNames": [
+        "read_operational_signals"
+      ],
+      "monitorTrigger": {
+        "rateLimit": {
+          "count": 1,
+          "interval": "300s"
+        }
+      }
+    },
+    {
+      "startStepNames": [
+        "read_operational_signals"
+      ],
+      "apiTrigger": {}
+    }
+  ],
+  "connectionEnvs": [
+    {
+      "env": "default",
+      "connections": [
+        {
+          "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+          "label": "SMIOT_APP_HTTP"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+datadog_workflow_automation.w2: Modifying... [id=2f9a3c1d-5292-4bc3-b4b9-cc03d4172724]
+datadog_workflow_automation.w2: Modifications complete after 1s [id=2f9a3c1d-5292-4bc3-b4b9-cc03d4172724]
+datadog_workflow_automation.w7: Modifying... [id=bb86206c-6df8-4b1d-8016-175a2fc62e49]
+datadog_workflow_automation.w7: Modifications complete after 0s [id=bb86206c-6df8-4b1d-8016-175a2fc62e49]
+datadog_workflow_automation.w4: Modifying... [id=ffd62026-6b63-40e4-9b46-6ac18d2d584f]
+datadog_workflow_automation.w4: Modifications complete after 1s [id=ffd62026-6b63-40e4-9b46-6ac18d2d584f]
+datadog_workflow_automation.w10: Modifying... [id=50b3dc85-dd20-4220-bda1-ec78d2a3d00f]
+datadog_workflow_automation.w10: Modifications complete after 0s [id=50b3dc85-dd20-4220-bda1-ec78d2a3d00f]
+datadog_workflow_automation.w3: Modifying... [id=373ed0c0-4509-4fcd-a067-f54f0becc00e]
+datadog_workflow_automation.w3: Modifications complete after 1s [id=373ed0c0-4509-4fcd-a067-f54f0becc00e]
+datadog_workflow_automation.w6: Modifying... [id=d8e1b3db-1a54-4b4f-9be3-bf7e270a86f3]
+datadog_workflow_automation.w6: Modifications complete after 0s [id=d8e1b3db-1a54-4b4f-9be3-bf7e270a86f3]
+datadog_workflow_automation.w1: Modifying... [id=b9e72b04-1580-45f8-ae1e-628124a19065]
+datadog_workflow_automation.w5: Modifying... [id=d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9]
+datadog_workflow_automation.w5: Modifications complete after 1s [id=d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9]
+datadog_workflow_automation.w9: Modifying... [id=47e95b24-db40-4cd5-b667-5b90e170b667]
+datadog_workflow_automation.w9: Modifications complete after 0s [id=47e95b24-db40-4cd5-b667-5b90e170b667]
+datadog_workflow_automation.w8: Modifying... [id=593a670c-d59c-4104-8658-df260245a21e]
+datadog_workflow_automation.w8: Modifications complete after 1s [id=593a670c-d59c-4104-8658-df260245a21e]
+
+Error: Error building update workflow request
+
+  with datadog_workflow_automation.w1,
+  on main.tf line 15, in resource "datadog_workflow_automation" "w1":
+  15: resource "datadog_workflow_automation" "w1" {
+
+unknown field in spec, this could be due to misspelled field, using a version
+of the Go client that is out of date, or support for this field has not been
+added. Check the
+[API](https://docs.datadoghq.com/api/latest/workflow-automation/#create-a-workflow)
+documentation for what fields are currently supported. Error: object contains
+additional property: map[rateLimit:map[count:1 interval:300s]]

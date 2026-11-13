@@ -1,0 +1,394 @@
+{
+    "schema":  "smiot.drill.ca3.v1",
+    "drill_id":  "DRILL-CA3-20261111T121804Z",
+    "data_label":  "synthetic_demo_telemetry",
+    "mode":  "live",
+    "instance_id":  "i-00bf2d3591d3ee0a2",
+    "region":  "ap-southeast-2",
+    "service":  "smiot.service",
+    "started":  {
+                    "utc":  "2026-11-11T12:18:04.319Z",
+                    "ict":  "2026-11-11T19:18:04.319+07:00"
+                },
+    "attestations":  {
+                         "monitors_ok":  true,
+                         "mute_or_annotation_noted":  true,
+                         "source":  "operator_flag_not_verified_by_script"
+                     },
+    "steps":  [
+                  {
+                      "name":  "precheck.aws_identity",
+                      "status":  "pass",
+                      "detail":  "account matches expected",
+                      "at":  "2026-11-11T12:18:05.738Z"
+                  },
+                  {
+                      "name":  "precheck.ssm_online",
+                      "status":  "pass",
+                      "detail":  "PingStatus=Online",
+                      "at":  "2026-11-11T12:18:07.125Z"
+                  },
+                  {
+                      "name":  "precheck.snapshot_fresh",
+                      "status":  "pass",
+                      "detail":  "age_hours=6.4",
+                      "at":  "2026-11-11T12:18:10.231Z"
+                  },
+                  {
+                      "name":  "precheck.app_and_dependencies",
+                      "status":  "pass",
+                      "detail":  "unit=active mongod=active mosquitto=active http=200",
+                      "at":  "2026-11-11T12:18:15.211Z"
+                  },
+                  {
+                      "name":  "precheck.fresh_mongo_sample",
+                      "status":  "pass",
+                      "detail":  "sample_age_sec=1.2",
+                      "at":  "2026-11-11T12:18:15.212Z"
+                  },
+                  {
+                      "name":  "precheck.monitor_status",
+                      "status":  "attested",
+                      "detail":  "Datadog monitor state is NOT read by this script; operator must confirm monitors are OK.",
+                      "at":  "2026-11-11T12:18:15.216Z"
+                  },
+                  {
+                      "name":  "stop_service",
+                      "status":  "done",
+                      "detail":  "ssm_status=Success command_id=8f2c1620-45f4-447f-9302-5d35f175e452",
+                      "at":  "2026-11-11T12:18:19.856Z"
+                  },
+                  {
+                      "name":  "recovery_check",
+                      "status":  "fail",
+                      "detail":  "not verified within 420 s. Do NOT assume recovery; start the guarded SSM document or check manually.",
+                      "at":  "2026-11-11T12:25:20.613Z"
+                  }
+              ],
+    "observations":  [
+                         {
+                             "at":  "2026-11-11T12:18:34.967Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  20.9,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:18:49.812Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  35.9,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:19:04.686Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  50.9,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:19:19.471Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  65.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:19:34.438Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  80.4,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:19:49.362Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  95.5,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:20:04.533Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  110.5,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:20:19.637Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  125.6,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:20:34.759Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  140.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:20:50.010Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  155.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:21:05.267Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  171.1,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:21:21.638Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  187.2,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:21:37.480Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  202.8,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:21:52.630Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  218.5,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:22:07.750Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  233.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:22:22.666Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  248.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:22:37.540Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  263.6,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:22:52.508Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  278.5,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:23:07.372Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  293.5,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:23:22.190Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  308.3,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:23:36.849Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  323,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:23:51.576Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  337.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:24:06.254Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  352.9,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:24:21.077Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  367.2,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:24:35.797Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  381.9,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:24:50.539Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  396.6,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:25:05.803Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  412.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         },
+                         {
+                             "at":  "2026-11-11T12:25:20.611Z",
+                             "ssm_status":  "Success",
+                             "unit":  "inactive",
+                             "mongod":  "active",
+                             "mosquitto":  "active",
+                             "http":  "000",
+                             "sample_age_sec":  426.7,
+                             "latest_sample_epoch_ms":  1794399490287
+                         }
+                     ],
+    "marks":  {
+                  "t0_precheck_done":  {
+                                           "utc":  "2026-11-11T12:18:15.220Z",
+                                           "ict":  "2026-11-11T19:18:15.220+07:00"
+                                       },
+                  "t1_stop_issued":  {
+                                         "utc":  "2026-11-11T12:18:19.850Z",
+                                         "ict":  "2026-11-11T19:18:19.850+07:00"
+                                     },
+                  "t2_down_observed":  {
+                                           "utc":  "2026-11-11T12:18:34.972Z",
+                                           "ict":  "2026-11-11T19:18:34.972+07:00"
+                                       }
+              },
+    "datadog_fields_to_fill_manually":  {
+                                            "monitor_alert_time_utc":  null,
+                                            "workflow_execution_id":  null,
+                                            "bits_investigation_id":  null
+                                        },
+    "result":  "not_recovered_within_wait",
+    "notes":  [
+                  "Script does not read Datadog; fill datadog_fields_to_fill_manually from the UI.",
+                  "No secret, URI or key is read or stored."
+              ],
+    "snapshot":  {
+                     "volume_id":  "vol-0fe7f6c8bac706a78",
+                     "latest_completed_start":  "2026-11-11T05:54:33.568000+00:00",
+                     "age_hours":  6.4,
+                     "max_age_hours":  24
+                 },
+    "baseline_observation":  {
+                                 "at":  "2026-11-11T12:18:15.194Z",
+                                 "ssm_status":  "Success",
+                                 "unit":  "active",
+                                 "mongod":  "active",
+                                 "mosquitto":  "active",
+                                 "http":  "200",
+                                 "sample_age_sec":  1.2,
+                                 "latest_sample_epoch_ms":  1794399490287
+                             },
+    "finished":  {
+                     "utc":  "2026-11-11T12:25:20.615Z",
+                     "ict":  "2026-11-11T19:25:20.615+07:00"
+                 }
+}

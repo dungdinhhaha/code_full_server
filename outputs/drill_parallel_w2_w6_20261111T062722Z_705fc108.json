@@ -1,0 +1,106 @@
+{
+    "schema":  "smiot.parallel_drill.w2_w6.v1",
+    "mode":  "local_simulation_only",
+    "started_at_utc":  "2026-11-11T06:27:22.2680479Z",
+    "finished_at_utc":  "2026-11-11T06:27:23.6748181Z",
+    "timeout_seconds":  45,
+    "preflight":  {
+                      "passed":  true,
+                      "checks":  [
+                                     "output_directory_available",
+                                     "distinct_local_farm_scopes",
+                                     "distinct_incident_ids",
+                                     "distinct_scenario_run_ids",
+                                     "no_external_integrations_configured"
+                                 ],
+                      "external_io":  false,
+                      "live_fault":  false,
+                      "deploy":  false,
+                      "datadog_write":  false
+                  },
+    "lanes":  [
+                  {
+                      "workflow":  "W2",
+                      "farm_id":  "drill_w2_local",
+                      "resource_id":  "node_2",
+                      "incident_id":  "INC-W2-016a2a49-20e1-47d8-8110-46104629b98c",
+                      "scenario_run_id":  "cad71277-1e98-4ead-8770-75a10cf5d570",
+                      "synthetic":  true,
+                      "events":  [
+                                     {
+                                         "detail":  "local scope and unique correlation IDs confirmed",
+                                         "step":  "preflight",
+                                         "status":  "pass",
+                                         "at_utc":  "2026-11-11T06:27:23.3742730Z"
+                                     },
+                                     {
+                                         "detail":  "fixture event only; no sensor or simulator changed",
+                                         "step":  "synthetic_flatline_observed",
+                                         "status":  "simulated",
+                                         "at_utc":  "2026-11-11T06:27:23.3899947Z"
+                                     },
+                                     {
+                                         "detail":  "fixture contains increasing sequence and variation markers; no MongoDB write",
+                                         "step":  "synthetic_recovery_samples",
+                                         "status":  "simulated",
+                                         "at_utc":  "2026-11-11T06:27:23.3899947Z"
+                                     },
+                                     {
+                                         "detail":  "live ACK, persisted samples, monitor and app verifier are not asserted by this local rehearsal",
+                                         "step":  "clear_gate",
+                                         "status":  "pending_external_evidence",
+                                         "at_utc":  "2026-11-11T06:27:23.3899947Z"
+                                     }
+                                 ],
+                      "result":  "local_rehearsal_only",
+                      "PSComputerName":  "localhost",
+                      "RunspaceId":  "57a0f652-c91c-43f5-b5c2-d9cb78f2808d",
+                      "PSShowComputerName":  false
+                  },
+                  {
+                      "workflow":  "W6",
+                      "farm_id":  "drill_w6_local",
+                      "resource_id":  "agronomic_advisory",
+                      "incident_id":  "INC-W6-f1a9eb70-91c3-44fe-9d18-9f017c96ff29",
+                      "scenario_run_id":  "ecb75e65-76f1-4f1b-b3c7-ccf619c0cb32",
+                      "synthetic":  true,
+                      "events":  [
+                                     {
+                                         "detail":  "local scope and unique correlation IDs confirmed",
+                                         "step":  "preflight",
+                                         "status":  "pass",
+                                         "at_utc":  "2026-11-11T06:27:23.4573893Z"
+                                     },
+                                     {
+                                         "detail":  "fixture event only; detector and metric stream unchanged",
+                                         "step":  "evaluation_heartbeat_missing",
+                                         "status":  "simulated",
+                                         "at_utc":  "2026-11-11T06:27:23.4703703Z"
+                                     },
+                                     {
+                                         "detail":  "fixture event only; no Datadog metric submitted",
+                                         "step":  "evaluation_heartbeat_restored",
+                                         "status":  "simulated",
+                                         "at_utc":  "2026-11-11T06:27:23.4703703Z"
+                                     },
+                                     {
+                                         "detail":  "live target-farm monitor OK, workflow and app CLEAR are not asserted",
+                                         "step":  "recovery_gate",
+                                         "status":  "pending_external_evidence",
+                                         "at_utc":  "2026-11-11T06:27:23.4703703Z"
+                                     }
+                                 ],
+                      "result":  "local_rehearsal_only",
+                      "PSComputerName":  "localhost",
+                      "RunspaceId":  "adefc1eb-c0e8-4afe-b9bc-b27606e99bb3",
+                      "PSShowComputerName":  false
+                  }
+              ],
+    "cleanup":  {
+                    "attempted":  true,
+                    "jobs_stopped":  true,
+                    "detail":  "all local rehearsal jobs stopped or completed and removed"
+                },
+    "result":  "local_parallel_rehearsal_completed_external_acceptance_pending",
+    "evidence_file":  "D:\\IOT Trung\\code_full_server\\outputs\\drill_parallel_w2_w6_20261111T062722Z_705fc108.json"
+}

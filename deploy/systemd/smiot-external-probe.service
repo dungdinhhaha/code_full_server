@@ -1,0 +1,30 @@
+# TEMPLATE ONLY - not installed by this repo.
+# Install (operator, on EC2):  /etc/systemd/system/smiot-external-probe.service
+# Runs the probe once; the timer fires it every 30 s. It is a separate process from smiot.service,
+# so it keeps reporting smiot.external.* when the app is down.
+#
+# /etc/smiot/probe.env (create by hand, mode 0600, owner root, NOT in git) should hold:
+#   MONGODB_URI=<read-only user URI>        # use a read-only MongoDB user, not the app's admin URI
+#   MONGODB_DATABASE=smiot
+#   SMIOT_PROBE_FARMS=greenhouse_a
+#   SMIOT_PROBE_ENV=demo
+# Optional: SMIOT_PROBE_URL, DD_DOGSTATSD_HOST, DD_DOGSTATSD_PORT.
+[Unit]
+Description=SMIOT external probe (app HTTP + MongoDB sample age -> DogStatsD)
+After=network.target mongod.service
+Documentation=file:///opt/smiot/scripts/smiot_external_probe.py
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/smiot/probe.env
+ExecStart=/opt/smiot/.venv/bin/python /opt/smiot/scripts/smiot_external_probe.py
+User=root
+TimeoutStartSec=20
+Nice=10
+NoNewPrivileges=true
+ProtectSystem=strict
+# State file for the fail streak lives here; without it ProtectSystem=strict makes it read-only.
+StateDirectory=smiot-probe
+ReadWritePaths=/var/lib/smiot-probe
+ProtectHome=true
+PrivateTmp=true

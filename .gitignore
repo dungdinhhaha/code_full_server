@@ -12,8 +12,17 @@ secrets.json
 *.key
 *.p12
 *.pfx
+*.crt
+*.cer
+*.jks
+*.ppk
+id_rsa*
+id_ed25519*
+.aws/
 
 # Local databases and runtime state
+farm_data.db
+farm_auth.db
 *.db
 *.db-journal
 .cache.sqlite
@@ -44,3 +53,10 @@ reports/
 *.bak
 outputs/**/evidence/
 outputs/**/qa_*/
+
+# tự động: trạng thái Terraform, dữ liệu sinh ra
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+**/.terraform/
+*.pyc

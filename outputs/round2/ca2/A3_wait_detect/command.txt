@@ -1,0 +1,7 @@
+Giờ bắt đầu theo dõi: 2026-11-06 02:37:xxZ (sau T0 = 02:36:40Z). Chỉ đọc.
+
+Poll mỗi 30 giây bằng Datadog MCP (a09fec6e…) search_datadog_monitors, query id:339977691, và mỗi lần bằng cách tương tự cho các monitor khác (340356283, 339977703, 339990226, 339990232, 341409441).
+Đọc healthz bằng SSM (read-only) lúc 02:41:06Z: command_id e51a840d-f619-4b4c-885b-e0eaa7f6603c.
+Đọc lịch sử workflow 18d1b008 bằng list_datadog_workflow_instances.
+Đọc chi tiết execution e09175ca-6eed-41a7-8dee-9066d3f366ef bằng get_datadog_workflow_instance.
+Đọc /incident: không thực hiện được, trang chuyển sang /login.

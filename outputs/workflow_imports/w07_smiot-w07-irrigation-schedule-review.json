@@ -1,0 +1,177 @@
+{
+  "description": "Checks soil-moisture input freshness before a human reviews the next irrigation turn. No crop envelope is assumed and no schedule is edited.",
+  "published": true,
+  "sensitivePrivileges": false,
+  "tags": [
+    "project:smiot",
+    "env:demo",
+    "service:smiot-smart-farm",
+    "plan:workflow-07",
+    "safety:read-only"
+  ],
+  "name": "SMIOT | W7 | Irrigation schedule evidence review",
+  "spec": {
+    "steps": [
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "errorHandlers": [
+          {
+            "fallbackStepName": "escalate_query_failed",
+            "retryStrategy": {
+              "linear": {
+                "interval": "1s",
+                "maxRetries": 1
+              },
+              "kind": "RETRY_STRATEGY_LINEAR"
+            }
+          }
+        ],
+        "name": "read_operational_signals",
+        "actionId": "com.datadoghq.dd.metrics.queryScalarData",
+        "outboundEdges": [
+          {
+            "nextStepName": "classify_evidence",
+            "branchName": "main"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "10m",
+            "name": "range"
+          },
+          {
+            "value": [
+              {
+                "aggregator": "last",
+                "name": "soil_humidity",
+                "query": "avg:smiot.telemetry.soil_humidity{*}",
+                "data_source": "metrics"
+              },
+              {
+                "aggregator": "last",
+                "name": "sample_age_s",
+                "query": "max:smiot.telemetry.sample_age_seconds{*}",
+                "data_source": "metrics"
+              }
+            ],
+            "name": "queries"
+          },
+          {
+            "value": [
+              {
+                "formula": "soil_humidity"
+              },
+              {
+                "formula": "sample_age_s"
+              }
+            ],
+            "name": "formulas"
+          }
+        ]
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 264,
+            "x": 0
+          }
+        },
+        "name": "classify_evidence",
+        "outboundEdges": [
+          {
+            "nextStepName": "evidence_observed",
+            "branchName": "true"
+          },
+          {
+            "nextStepName": "escalate_or_review",
+            "branchName": "false"
+          }
+        ],
+        "parameters": [
+          {
+            "value": "and",
+            "name": "joinOperator"
+          },
+          {
+            "value": [
+              {
+                "comparisonOperator": "eq",
+                "leftValue": "${ (() => { const c=Steps.read_operational_signals.data?.attributes?.columns || []; const a=Number(c.find(x=>x.name===\"sample_age_s\")?.values?.[0]); return Number.isFinite(a) && a>=0 && a<120; })() }",
+                "rightValue": true
+              }
+            ],
+            "name": "conditions"
+          }
+        ],
+        "actionId": "com.datadoghq.core.if"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "evidence_observed",
+        "parameters": [
+          {
+            "value": "W7 | FRESH_INPUTS_FOR_REVIEW | Soil moisture sample is fresh. Compare it with the approved farm schedule and crop-stage envelope before any human-approved change. This workflow does not modify irrigation.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 432,
+            "x": 0
+          }
+        },
+        "name": "escalate_or_review",
+        "parameters": [
+          {
+            "value": "W7 | SCHEDULE_CHANGE_BLOCKED | Soil-moisture evidence is stale or unavailable. Keep the existing safe schedule, check sensor/persistence, and escalate; no automatic irrigation change.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      },
+      {
+        "display": {
+          "bounds": {
+            "y": 96,
+            "x": 0
+          }
+        },
+        "name": "escalate_query_failed",
+        "parameters": [
+          {
+            "value": "SMIOT | W7 | Irrigation schedule evidence review | QUERY_FAILED | Evidence unavailable; fail closed and hand to an operator. No actuator or infrastructure action.",
+            "name": "value"
+          }
+        ],
+        "actionId": "com.datadoghq.core.echo"
+      }
+    ],
+    "handle": "smiot-w07-irrigation-schedule-review",
+    "triggers": [
+      {
+        "startStepNames": [
+          "read_operational_signals"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "300s"
+          }
+        }
+      }
+    ]
+  }
+}

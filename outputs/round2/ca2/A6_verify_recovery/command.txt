@@ -1,0 +1,9 @@
+Giờ: 2026-11-06 02:45:22Z đến 02:47:15Z (09:45 đến 09:47 ICT). Chỉ đọc.
+
+1) Datadog MCP search_datadog_monitors, query id:339977691, poll mỗi 30 giây từ 02:45:22Z đến 02:47:07Z.
+2) SSM AWS-RunShellScript (read-only), command_id d4b264e8-5f8a-46b1-b00d-c53446645606:
+     echo UTC=$(date -u +%FT%TZ)
+     curl -s -m 5 -w " HTTP=%{http_code}" http://127.0.0.1:8080/healthz; echo
+     systemctl is-active smiot mongod mosquitto
+3) Datadog MCP list_datadog_workflow_instances, workflow 18d1b008, kiểm có execution mới sau recovery.
+4) Mở /incident để xem trạng thái recovered: không thực hiện được, trang yêu cầu đăng nhập.

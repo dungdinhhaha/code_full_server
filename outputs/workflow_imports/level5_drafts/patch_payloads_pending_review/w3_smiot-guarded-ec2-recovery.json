@@ -1,0 +1,301 @@
+{
+  "data": {
+    "id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+    "type": "workflows",
+    "attributes": {
+      "name": "SMIOT | Guarded EC2 app recovery",
+      "description": "Starts only the SMIOT web application after the inactive-service monitor fires. SSM checks MongoDB, MQTT, disk, deduplication, HTTP health, and fresh MongoDB telemetry; it never restarts MongoDB or MQTT.",
+      "published": true,
+      "runAs": {
+        "type": "owner"
+      },
+      "sensitivePrivileges": false,
+      "tags": [
+        "env:demo",
+        "project:smiot",
+        "service:smiot-smart-farm"
+      ],
+      "spec": {
+        "triggers": [
+          {
+            "startStepNames": [
+              "Send_command"
+            ],
+            "monitorTrigger": {
+              "rateLimit": {
+                "count": 1,
+                "interval": "600s"
+              }
+            }
+          }
+        ],
+        "steps": [
+          {
+            "name": "Send_command",
+            "actionId": "com.datadoghq.aws.system_manager.sendCommand",
+            "connectionLabel": "INTEGRATION_AWS",
+            "parameters": [
+              {
+                "name": "region",
+                "value": "ap-southeast-2"
+              },
+              {
+                "name": "documentName",
+                "value": "SMIOT-GuardedStartApp"
+              },
+              {
+                "name": "instanceIds",
+                "value": [
+                  "i-00bf2d3591d3ee0a2"
+                ]
+              },
+              {
+                "name": "parameters",
+                "value": {
+                  "DryRun": [
+                    "false"
+                  ],
+                  "IncidentId": [
+                    "{{ InstanceId }}"
+                  ]
+                }
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 0,
+                "y": 192
+              }
+            },
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "verify_smiot_recovery"
+              }
+            ],
+            "errorHandlers": [
+              {
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 0
+                  }
+                },
+                "fallbackStepName": "notify_recovery_unverified_smiot_app"
+              }
+            ]
+          },
+          {
+            "name": "verify_smiot_recovery",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/recovery-verification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"workflow_run_id\":\"{{InstanceId}}\",\"instance_id\":\"i-00bf2d3591d3ee0a2\"}"
+              }
+            ],
+            "completionGate": {
+              "completionCondition": {
+                "operand1": "{{ Steps.verify_smiot_recovery.body.verified }}",
+                "operand2": true,
+                "operator": "OPERATOR_EQUAL"
+              },
+              "retryStrategy": {
+                "kind": "RETRY_STRATEGY_LINEAR",
+                "linear": {
+                  "interval": "10s",
+                  "maxRetries": 12
+                }
+              }
+            },
+            "display": {
+              "bounds": {
+                "x": 360,
+                "y": 192
+              }
+            },
+            "outboundEdges": [
+              {
+                "branchName": "main",
+                "nextStepName": "classify_smiot_recovery"
+              }
+            ],
+            "errorHandlers": [
+              {
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 0
+                  }
+                },
+                "fallbackStepName": "notify_recovery_unverified_smiot_app"
+              }
+            ]
+          },
+          {
+            "name": "notify_verified_smiot_app",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"event_id\":\"{{InstanceId}}-recovery-verified\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"workflow_run_id\":\"{{InstanceId}}\",\"monitor_id\":\"{{Source.monitor.id}}\",\"message\":\"The recovery verifier confirmed a safe outcome: {{ Steps.verify_smiot_recovery.body.status }}. It checked app, MongoDB, MQTT, and fresh persisted telemetry. This workflow trigger did not provide verified incident, farm, or scenario-run linkage.\",\"category\":\"datadog\",\"severity\":\"info\",\"status\":\"{{ Steps.verify_smiot_recovery.body.status }}\",\"action_code\":\"guarded_app_start_{{ Steps.verify_smiot_recovery.body.status }}\",\"verification_status\":\"passed\",\"evidence_refs\":[\"{{InstanceId}}\"]}"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 900,
+                "y": 96
+              }
+            },
+            "outboundEdges": []
+          },
+          {
+            "name": "classify_smiot_recovery",
+            "actionId": "com.datadoghq.core.if",
+            "parameters": [
+              {
+                "name": "joinOperator",
+                "value": "and"
+              },
+              {
+                "name": "conditions",
+                "value": [
+                  {
+                    "comparisonOperator": "eq",
+                    "leftValue": "${ (() => { try { const h=Steps.verify_smiot_recovery||{}; const raw=h.body??h.response?.body??h.data?.body??h.responseBody; const b=typeof raw===\"string\"?JSON.parse(raw):raw; const code=Number(h.statusCode??h.status??h.httpStatusCode??h.response?.statusCode??h.response?.status); return code===200 && b?.verified===true && [\"recovered\",\"already_healthy\"].includes(b?.status); } catch (_) { return false; } })() }",
+                    "rightValue": true
+                  }
+                ]
+              }
+            ],
+            "outboundEdges": [
+              {
+                "branchName": "true",
+                "nextStepName": "notify_verified_smiot_app"
+              },
+              {
+                "branchName": "false",
+                "nextStepName": "notify_recovery_unverified_smiot_app"
+              }
+            ],
+            "errorHandlers": [
+              {
+                "retryStrategy": {
+                  "kind": "RETRY_STRATEGY_LINEAR",
+                  "linear": {
+                    "interval": "1s",
+                    "maxRetries": 0
+                  }
+                },
+                "fallbackStepName": "notify_recovery_unverified_smiot_app"
+              }
+            ],
+            "display": {
+              "bounds": {
+                "x": 540,
+                "y": 192
+              }
+            }
+          },
+          {
+            "name": "notify_recovery_unverified_smiot_app",
+            "actionId": "com.datadoghq.http.request",
+            "connectionLabel": "SMIOT_APP_HTTP",
+            "parameters": [
+              {
+                "name": "verb",
+                "value": "POST"
+              },
+              {
+                "name": "url",
+                "value": "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+              },
+              {
+                "name": "requestHeaders",
+                "value": [
+                  {
+                    "key": "Content-Type",
+                    "value": [
+                      "application/json"
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "body",
+                "value": "{\"event_id\":\"{{InstanceId}}-recovery-unverified\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"workflow_run_id\":\"{{InstanceId}}\",\"monitor_id\":\"{{Source.monitor.id}}\",\"message\":\"Recovery is unverified. Keep the incident open; check the guarded SSM result and health verifier. This notification reports no successful recovery and has no verified incident/farm/scenario linkage.\",\"category\":\"datadog\",\"severity\":\"warning\",\"status\":\"pending_verification\",\"action_code\":\"guarded_app_recovery_unverified\",\"verification_status\":\"pending\",\"evidence_refs\":[\"{{InstanceId}}\"]}"
+              }
+            ],
+            "readinessGate": {
+              "thresholdType": "ANY"
+            },
+            "display": {
+              "bounds": {
+                "x": 720,
+                "y": 384
+              }
+            }
+          }
+        ],
+        "handle": "smiot-guarded-ec2-recovery",
+        "connectionEnvs": [
+          {
+            "env": "default",
+            "connections": [
+              {
+                "connectionId": "9477b5cd-189f-442b-aa16-f2b76089efc8",
+                "label": "INTEGRATION_AWS"
+              },
+              {
+                "connectionId": "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                "label": "SMIOT_APP_HTTP"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

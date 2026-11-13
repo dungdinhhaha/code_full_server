@@ -1,0 +1,119 @@
+{
+  "additionalProperties": {
+    "created_at": 1793607481000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-02T22:02:00+00:00"
+  },
+  "created": "2026-11-02T08:18:01.793Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245831
+    },
+    "email": "support-user-prod@datadoghq.com",
+    "handle": "support-no-kp_8tnkfs1rc",
+    "name": "Datadog Support"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339687540,
+  "matchingDowntimes": [],
+  "message": "## 🚨 What’s happening\n\nHigh disk I/O wait time detected on host {{host.name}}.\n\nThis means one or more devices on the host are taking a long time to complete disk operations — averaging over 500ms in the last 5 minutes. High I/O wait time typically occurs when the system is frequently waiting for disk reads or writes to finish, often due to storage contention or inefficient disk usage by running processes.\n\n---\n\n## 📈 Impact\n\nIf I/O wait remains high, it can lead to:\n\n- Slower application and system performance, especially for disk-intensive services\n- Delayed job processing or database queries\n- Risk of timeouts or service degradation due to blocked I/O operations\n\nSustained disk latency can have cascading effects on dependent services and degrade user experience.\n\n---\n\n## Runbook\n\n### Initial Troubleshooting Steps\n\n## 🛠 How to fix (Runbook)\n\n### 🔍 Initial troubleshooting\n\n1. Identify the affected host and device from the alert.\n2. Open [**Infrastructure > Host Details**](/infrastructure) for {{host.name}}.\n3. In the **Metrics tab**, examine:\n   - `system.io.await` by device\n   - `system.disk.read_time`, `system.disk.write_time`, `system.disk.in_use`\n4. Use [**Live Processes**](/process) to find I/O-heavy processes.\n5. SSH into the host and run:\n   ```bash\n   iostat -xd 1 3\n   \n### Cause and Resolution\n\nCause | Resolution\n------|------\nDisk-heavy processes | Restart or optimize services with high I/O usage\n------|------\nBackup jobs, ETLs, logging | Schedule or throttle non-critical workloads\n------|------\nUnderlying disk performance | Check for slow or saturated disks, especially on network-attached volumes (e.g., EBS, NFS)\n------|------\nScale-out option | Move I/O-intensive tasks to separate or faster storage tiers\n        \n###  Related links\n\n* [Host Map](/infrastructure/map)\n* [Live Processes](/process?query=host%3A{{host.name}})\n* [System Dashboards](/dashboard/lists)\n* [Monitor Documentation](https://docs.datadoghq.com/monitors/)\n* [Logs](/logs?query=device:{{device.name}})\n* [Metrics Explorer (system.io.await)](/metric/explorer?exp_metric=system.io.await&exp_scope=device:{{device.name}}&exp_agg=avg&exp_type=line)\n\n### Who should be notified?\n\nAssign the appropriate notification handle for this alert (e.g., `@slack-infra`, `@pagerduty-core-systems`):  \n`@your-team-handle`",
+  "modified": "2026-11-02T08:18:01.793Z",
+  "multi": true,
+  "name": "Disk latency is high for host {{host.name}} on device {{device.name}}",
+  "options": {
+    "includeTags": false,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "notifyNoData": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 500
+    }
+  },
+  "overallState": "OK",
+  "priority": null,
+  "query": "avg(last_5m):avg:system.io.await{*} by {device} > 500",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {
+      "device:loop0": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:loop0",
+        "status": "OK"
+      },
+      "device:loop1": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:loop1",
+        "status": "OK"
+      },
+      "device:loop2": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:loop2",
+        "status": "OK"
+      },
+      "device:loop3": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:loop3",
+        "status": "OK"
+      },
+      "device:nvme0n1": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:nvme0n1",
+        "status": "OK"
+      },
+      "device:nvme0n1p1": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:nvme0n1p1",
+        "status": "OK"
+      },
+      "device:nvme0n1p14": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:nvme0n1p14",
+        "status": "OK"
+      },
+      "device:nvme0n1p15": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:nvme0n1p15",
+        "status": "OK"
+      },
+      "device:nvme0n1p16": {
+        "lastNodataTs": null,
+        "lastNotifiedTs": null,
+        "lastResolvedTs": null,
+        "lastTriggeredTs": null,
+        "name": "device:nvme0n1p16",
+        "status": "OK"
+      }
+    }
+  },
+  "tags": [
+    "integration:host",
+    "monitor_pack:host"
+  ],
+  "type": "query alert"
+}

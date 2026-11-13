@@ -1,0 +1,7 @@
+
+Error: Too many command line arguments
+
+To specify a working directory for the plan, use the global -chdir flag.
+
+For more help on using this command, run:
+  terraform plan -help

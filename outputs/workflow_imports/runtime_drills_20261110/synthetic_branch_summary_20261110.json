@@ -1,0 +1,37 @@
+{
+  "generated_at_utc": "2026-11-10T10:00:00Z",
+  "synthetic": true,
+  "scope": "W1,W2,W4,W5",
+  "note": "Read-only evidence/classification branches only. No PLC, pump, actuator, service restart, or physical recovery action was issued.",
+  "runs": [
+    {
+      "workflow": "W1",
+      "run_id": "0acef4d8-7e64-4832-8357-5554f9de5e83",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=false -> escalate_missing_evidence -> notify_smiot_app",
+      "result": "Safe escalation; safety-trip metric was not available in the workflow query window."
+    },
+    {
+      "workflow": "W2",
+      "run_id": "4dec707c-8ca1-46f8-95cb-fcb633b8a3b9",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> If_local_interlock_confirmed=false -> Echo_escalate_missing_evidence -> notify_smiot_app",
+      "result": "Safe escalation; flatline evidence existed but local interlock confirmation was absent."
+    },
+    {
+      "workflow": "W4",
+      "run_id": "da4bbbb7-7bbb-48b1-b807-0f754ef5e9b6",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> classify_freshness=false -> escalate_not_confirmed_fresh -> notify_smiot_app",
+      "result": "Safe escalation; no restart was issued because the freshness/refusal predicate was not proven."
+    },
+    {
+      "workflow": "W5",
+      "run_id": "129839c9-8b4e-4ab8-a247-87ead0eb2280",
+      "status": "SUCCEEDED",
+      "branch": "verify_evidence_available=true -> mongo=false,mqtt=false,ingest=false -> no_dependency_breach -> notify_smiot_app",
+      "result": "Read-only triage completed and reported that no dependency breach was proven."
+    }
+  ],
+  "positive_action_branch_blocker": "The demo metric points were accepted by the Datadog series endpoint, but the queried streams still returned zero or no safety-trip data in the workflow window. The application-owned telemetry stream therefore did not provide proof for the positive branches. No synthetic positive outcome was fabricated."
+}

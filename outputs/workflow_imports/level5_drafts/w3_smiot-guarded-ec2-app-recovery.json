@@ -1,0 +1,78 @@
+{
+  "name": "SMIOT | Guarded EC2 app recovery",
+  "description": "Starts only the SMIOT web application after the inactive-service monitor fires. SSM checks MongoDB, MQTT, disk, deduplication, HTTP health, and fresh MongoDB telemetry; it never restarts MongoDB or MQTT.",
+  "published": false,
+  "sensitivePrivileges": false,
+  "tags": [
+    "env:demo",
+    "project:smiot",
+    "service:smiot-smart-farm"
+  ],
+  "spec": {
+    "triggers": [
+      {
+        "startStepNames": [
+          "Send_command"
+        ],
+        "monitorTrigger": {
+          "rateLimit": {
+            "count": 1,
+            "interval": "600s"
+          }
+        }
+      }
+    ],
+    "steps": [
+      {
+        "name": "Send_command",
+        "actionId": "com.datadoghq.aws.system_manager.sendCommand",
+        "connectionLabel": "INTEGRATION_AWS",
+        "parameters": [
+          {
+            "name": "region",
+            "value": "ap-southeast-2"
+          },
+          {
+            "name": "documentName",
+            "value": "SMIOT-GuardedStartApp"
+          },
+          {
+            "name": "instanceIds",
+            "value": [
+              "i-00bf2d3591d3ee0a2"
+            ]
+          },
+          {
+            "name": "parameters",
+            "value": {
+              "DryRun": [
+                "false"
+              ],
+              "IncidentId": [
+                "{{ InstanceId }}"
+              ]
+            }
+          }
+        ],
+        "display": {
+          "bounds": {
+            "x": 0,
+            "y": 192
+          }
+        }
+      }
+    ],
+    "handle": "smiot-guarded-ec2-recovery",
+    "connectionEnvs": [
+      {
+        "env": "default",
+        "connections": [
+          {
+            "connectionId": "9477b5cd-189f-442b-aa16-f2b76089efc8",
+            "label": "INTEGRATION_AWS"
+          }
+        ]
+      }
+    ]
+  }
+}

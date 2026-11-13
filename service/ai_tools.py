@@ -1,14 +1,34 @@
 """Read-only MongoDB-backed tools for the Gemini assistant."""
-from datetime import datetime, timedelta
-from service import auth
+from datetime import datetime, timezone
 
 
-def _check_offline(row):
+class _LazyAuth:
+    """Import service.auth on first use so this module stays importable without MongoDB."""
+    def __getattr__(self, name):
+        from service import auth as _auth
+        return getattr(_auth, name)
+
+
+auth = _LazyAuth()
+
+
+def _check_offline(row, now=None):
+    """Status comes from telemetry_health.compute_node_status (same thresholds as UI/watchdog).
+
+    OFFLINE -> only {"status","last_seen","reason"}; STALE -> row plus status/last_seen;
+    UNKNOWN (unparsable timestamp) -> row unchanged; ONLINE -> row unchanged.
+    """
     if not row or "timestamp" not in row: return row
     try:
-        ts=datetime.strptime(row["timestamp"],"%Y-%m-%d %H:%M:%S")
-        if datetime.utcnow()-ts>timedelta(minutes=15): return {"status":"OFFLINE","last_seen":row["timestamp"]}
-    except Exception: pass
+        from service.telemetry_health import compute_node_status
+        stamp = row.get("received_at") or datetime.strptime(row["timestamp"],"%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        st = compute_node_status(stamp, now, last_sequence=row.get("sequence"), boot_id=row.get("boot_id"))
+    except Exception:
+        return row
+    if st["status"] == "OFFLINE":
+        return {"status":"OFFLINE","last_seen":row["timestamp"],"reason":st["reason"],"age_s":st["age_s"]}
+    if st["status"] == "STALE":
+        return {**row,"status":"STALE","last_seen":row["timestamp"],"reason":st["reason"],"age_s":st["age_s"]}
     return row
 
 

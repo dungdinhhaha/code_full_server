@@ -1,0 +1,47 @@
+{
+  "additionalProperties": {
+    "created_at": 1793607482000,
+    "org_id": 2115822,
+    "overall_state_modified": "2026-11-02T08:18:11+00:00"
+  },
+  "created": "2026-11-02T08:18:02.029Z",
+  "creator": {
+    "additionalProperties": {
+      "id": 72245831
+    },
+    "email": "support-user-prod@datadoghq.com",
+    "handle": "support-no-kp_8tnkfs1rc",
+    "name": "Datadog Support"
+  },
+  "deleted": null,
+  "draftStatus": "published",
+  "id": 339687541,
+  "matchingDowntimes": [],
+  "message": "## 🚨 What’s happening\n\nLow disk capacity detected on host {{host.name}}.\n\nThis alert indicates that one or more filesystems are **over 90% full**, meaning they are at risk of running out of space for applications to write. If unaddressed, writes will fail and applications may crash. Investigate and free space by deleting or archiving data, or by expanding the volume.\n\n---\n\n## 📈 Impact\n\nWhen disks run out of space, it can result in:\n\n- Applications failing on writes (such as databases, services writing logs, or temp files)\n- Stuck or crashing jobs (logging, backups, compactions, builds)\n- Node instability (for example, kubelet/daemon issues or package updates failing)\n\nSpace exhaustion can quickly degrade services, especially on hosts that handle large volumes of data or critical workloads.\n\n---\n\n## 🛠 How to fix (Runbook)\n\n### 🔍 Initial troubleshooting\n\n1. Identify the affected host and device/mount point from the alert.\n2. Open [**Infrastructure → Host Details**](/infrastructure) for **{{host.name}}**.\n3. In the **Metrics** tab, review:\n   - `system.disk.in_use` (fraction of space used)\n   - `system.disk.total`, `system.disk.used`, `system.disk.free`\n4. SSH into the host to find large directories/files (Linux/macOS):\n   ```bash\n   # Top space consumers by directory (human-readable)\n   sudo du -xhd1 / | sort -h | tail -n 20\n\n   # Top 50 largest files (avoid virtual filesystems)\n   sudo find / -xdev -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -50\n\n   # Filesystem usage\n   df -h\n   ```\n\n   On systems with `ncdu`:\n\n   ```bash\n   sudo ncdu -x /\n   ```\n\n   For Docker-heavy hosts:\n\n   ```bash\n   docker system df\n   docker ps --filter status=exited --format '{{.ID}}\t{{.Names}}'\n   ```\n\n> ⚠️ Be cautious with deletions. Prefer archiving/moving off-host or rotating/truncating logs using the owning service.\n\n### 🧹 Common causes & resolutions\n\nCause | How to resolve safely\n------|------\nRunaway logs (app, systemd/journal) | Rotate/compress logs; fix log levels. For journald: `journalctl --disk-usage`, then set retention (`/etc/systemd/journald.conf`). For example, `SystemMaxUse=1G`, and `sudo systemctl restart systemd-journald`.\nLeftover build/artifact/temp files | Clean workspace caches and temp dirs (`/tmp`, build caches). Add periodic cleanup to CI or cron.\nOld backups/snapshots on the host | Move backups to object storage; prune old sets per retention policy; avoid storing backups on root volumes.\nContainer images/volumes piling up | Remove unused images/containers/volumes once verified: `docker image prune -a`, `docker container prune`, `docker volume ls` (review before removing).\nApplication data growth (DBs, queues) | Purge/archive old data; enable partitioning/TTL; move cold data to cheaper storage; consider resizing the volume.\nLarge core dumps or crash artifacts | Review & archive off-host; tune core dump settings to limit or disable where appropriate.\n\n\n### 🔗 Related links\n\n* [Host Map](/infrastructure/map)\n* [Live Processes](/process?query=host%3A{{host.name}})\n* [System Dashboards](/dashboard/lists)\n* [Monitor Documentation](https://docs.datadoghq.com/monitors/)\n* [Logs](/logs?query=device:{{device.name}}+host:{{host.name}})\n* [Infrastructure](/infrastructure/hosts?scope=host:{{host.name}})\n* [Metrics Explorer (system.disk.free)](/metric/explorer?exp_metric=system.disk.free&exp_scope=device:{{device.name}},host:{{host.name}}&exp_agg=avg&exp_type=line)\n* [Metrics Explorer (system.disk.total)](/metric/explorer?exp_metric=system.disk.total&exp_scope=device:{{device.name}},host:{{host.name}}&exp_agg=avg&exp_type=line)\n\n### 👥 Who should be notified?\n\nAssign the appropriate notification handle for this alert (for example, `@slack-infra`, `@pagerduty-core-systems`):  \n`@your-team-handle`",
+  "modified": "2026-11-02T08:18:02.029Z",
+  "multi": true,
+  "name": "Disk usage is high for host {{host.name}} on device {{device.name}}",
+  "options": {
+    "includeTags": false,
+    "newHostDelay": 300,
+    "notifyAudit": false,
+    "notifyNoData": false,
+    "silenced": {},
+    "thresholds": {
+      "critical": 99,
+      "criticalRecovery": 89
+    }
+  },
+  "overallState": "No Data",
+  "priority": null,
+  "query": "max(next_3d):forecast((1 - avg:system.disk.free{*} by {host,device} / avg:system.disk.total{*} by {host,device}) * 100, \"seasonal\", 1, interval=\"60m\", seasonality=\"weekly\") >= 99",
+  "restrictedRoles": null,
+  "state": {
+    "groups": {}
+  },
+  "tags": [
+    "integration:host",
+    "monitor_pack:host"
+  ],
+  "type": "query alert"
+}

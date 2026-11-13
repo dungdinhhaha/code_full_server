@@ -1,0 +1,311 @@
+﻿{
+    "data":  {
+                 "id":  "2f9a3c1d-5292-4bc3-b4b9-cc03d4172724",
+                 "type":  "workflows",
+                 "attributes":  {
+                                    "createdAt":  "2026-11-09T17:32:13.148318Z",
+                                    "description":  "Read-only workflow for the soil humidity flatline monitor. It confirms the backend flatline signal only. App/virtual PLC HOLD acknowledgement must be verified from the app action ledger; this workflow never sends HOLD/CLEAR or actuator commands.",
+                                    "name":  "SMIOT | Ca 2 | Confirm local interlock",
+                                    "published":  true,
+                                    "runAsUserMode":  "owner",
+                                    "sensitivePrivileges":  false,
+                                    "spec":  {
+                                                 "triggers":  [
+                                                                  {
+                                                                      "startStepNames":  [
+                                                                                             "query_flatline_and_interlock"
+                                                                                         ],
+                                                                      "monitorTrigger":  {
+                                                                                             "rateLimit":  {
+                                                                                                               "count":  1,
+                                                                                                               "interval":  "300s"
+                                                                                                           }
+                                                                                         }
+                                                                  }
+                                                              ],
+                                                 "steps":  [
+                                                               {
+                                                                   "name":  "query_flatline_and_interlock",
+                                                                   "actionId":  "com.datadoghq.dd.metrics.queryScalarData",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "range",
+                                                                                          "value":  "5m"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "queries",
+                                                                                          "value":  [
+                                                                                                        {
+                                                                                                            "aggregator":  "last",
+                                                                                                            "data_source":  "metrics",
+                                                                                                            "name":  "flatline",
+                                                                                                            "query":  "max:smiot.telemetry.sensor_flatline{farm:greenhouse_a,node:2}"
+                                                                                                        }
+                                                                                                    ]
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "formulas",
+                                                                                          "value":  [
+                                                                                                        {
+                                                                                                            "formula":  "flatline"
+                                                                                                        }
+                                                                                                    ]
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "verify_evidence_available",
+                                                                                             "branchName":  "main"
+                                                                                         }
+                                                                                     ],
+                                                                   "errorHandlers":  [
+                                                                                         {
+                                                                                             "retryStrategy":  {
+                                                                                                                   "kind":  "RETRY_STRATEGY_LINEAR",
+                                                                                                                   "linear":  {
+                                                                                                                                  "interval":  "1s",
+                                                                                                                                  "maxRetries":  1
+                                                                                                                              }
+                                                                                                               },
+                                                                                             "fallbackStepName":  "Echo_query_failed"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  0,
+                                                                                                  "y":  96
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "verify_evidence_available",
+                                                                   "actionId":  "com.datadoghq.core.if",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "joinOperator",
+                                                                                          "value":  "and"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "conditions",
+                                                                                          "value":  [
+                                                                                                        {
+                                                                                                            "comparisonOperator":  "eq",
+                                                                                                            "leftValue":  "${ (() =\u003e { const c=Steps.query_flatline_and_interlock.data?.attributes?.columns || []; const names=[\"flatline\"]; return names.every(k =\u003e { const v=Number(c.find(x=\u003ex.name===k)?.values?.[0]); return Number.isFinite(v); }); })() }",
+                                                                                                            "rightValue":  true
+                                                                                                        }
+                                                                                                    ]
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "If_local_interlock_confirmed",
+                                                                                             "branchName":  "true"
+                                                                                         },
+                                                                                         {
+                                                                                             "nextStepName":  "escalate_missing_evidence",
+                                                                                             "branchName":  "false"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  0,
+                                                                                                  "y":  216
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "If_local_interlock_confirmed",
+                                                                   "actionId":  "com.datadoghq.core.if",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "joinOperator",
+                                                                                          "value":  "and"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "conditions",
+                                                                                          "value":  [
+                                                                                                        {
+                                                                                                            "comparisonOperator":  "eq",
+                                                                                                            "leftValue":  "${ (() =\u003e { const cols=Steps.query_flatline_and_interlock.data?.attributes?.columns || []; const flatline=Number(cols.find(c=\u003ec.name===\"flatline\")?.values?.[0]); return Number.isFinite(flatline) \u0026\u0026 flatline===1; })() }",
+                                                                                                            "rightValue":  true
+                                                                                                        }
+                                                                                                    ]
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "Echo_local_interlock_confirmed",
+                                                                                             "branchName":  "true"
+                                                                                         },
+                                                                                         {
+                                                                                             "nextStepName":  "Echo_escalate_missing_evidence",
+                                                                                             "branchName":  "false"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  0,
+                                                                                                  "y":  384
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "Echo_local_interlock_confirmed",
+                                                                   "actionId":  "com.datadoghq.core.echo",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "value",
+                                                                                          "value":  "CA2 | SENSOR_FLATLINE_CONFIRMED | backend metric reports 10 fresh persisted Node 2 soil-humidity samples are flat | this does not prove HOLD was acknowledged | verify the app action ledger and virtual PLC ACK; no Datadog actuator action; no auto-CLEAR | RECORD=workflow run and linked monitor event | VERIFY=check app action ledger and fresh telemetry before marking recovered; Echo is not recovery proof"
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "notify_smiot_app",
+                                                                                             "branchName":  "main"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  0,
+                                                                                                  "y":  552
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "Echo_escalate_missing_evidence",
+                                                                   "actionId":  "com.datadoghq.core.echo",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "value",
+                                                                                          "value":  "CA2 | ESCALATE_HUMAN | flatline is not currently confirmed or metric value is unavailable | check the monitor group, source freshness, app action ledger and virtual PLC ACK | no HOLD/CLEAR from Datadog | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty"
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "notify_smiot_app",
+                                                                                             "branchName":  "main"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  384,
+                                                                                                  "y":  552
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "Echo_query_failed",
+                                                                   "actionId":  "com.datadoghq.core.echo",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "value",
+                                                                                          "value":  "CA2 | ESCALATE_HUMAN | Datadog flatline metric query failed | app/virtual PLC interlock remains unverified | no actuator action and no auto-CLEAR | DECISION=UNKNOWN_OR_NO_TRIGGER | ACTION=NONE | NEXT=operator review; retain uncertainty"
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "notify_smiot_app",
+                                                                                             "branchName":  "main"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  384,
+                                                                                                  "y":  552
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "escalate_missing_evidence",
+                                                                   "actionId":  "com.datadoghq.core.echo",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "value",
+                                                                                          "value":  "W2 | DECISION=UNKNOWN | EVIDENCE=required metric column missing or non-numeric | ACTION=NONE | NEXT=operator checks telemetry source and monitor window; do not mark recovered"
+                                                                                      }
+                                                                                  ],
+                                                                   "outboundEdges":  [
+                                                                                         {
+                                                                                             "nextStepName":  "notify_smiot_app",
+                                                                                             "branchName":  "main"
+                                                                                         }
+                                                                                     ],
+                                                                   "display":  {
+                                                                                   "bounds":  {
+                                                                                                  "x":  384,
+                                                                                                  "y":  552
+                                                                                              }
+                                                                               }
+                                                               },
+                                                               {
+                                                                   "name":  "notify_smiot_app",
+                                                                   "actionId":  "com.datadoghq.http.request",
+                                                                   "connectionLabel":  "SMIOT_APP_HTTP",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "name":  "verb",
+                                                                                          "value":  "POST"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "url",
+                                                                                          "value":  "https://13-238-30-218.sslip.io/api/integrations/datadog/notification"
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "requestHeaders",
+                                                                                          "value":  [
+                                                                                                        {
+                                                                                                            "key":  "Content-Type",
+                                                                                                            "value":  [
+                                                                                                                          "application/json"
+                                                                                                                      ]
+                                                                                                        }
+                                                                                                    ]
+                                                                                      },
+                                                                                      {
+                                                                                          "name":  "body",
+                                                                                          "value":  "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"Datadog ran workflow {{WorkflowName}}. Open run {{InstanceId}} to review the result and next step.\",\"category\":\"datadog\",\"severity\":\"info\"}"
+                                                                                      }
+                                                                                  ],
+                                                                   "readinessGate":  {
+                                                                                         "thresholdType":  "ANY"
+                                                                                     }
+                                                               }
+                                                           ],
+                                                 "handle":  "smiot-ca2-confirm-local-interlock",
+                                                 "connectionEnvs":  [
+                                                                        {
+                                                                            "env":  "default",
+                                                                            "connections":  [
+                                                                                                {
+                                                                                                    "connectionId":  "0e1ab54b-a758-47ad-ab39-c9ab4e091dba",
+                                                                                                    "label":  "SMIOT_APP_HTTP"
+                                                                                                }
+                                                                                            ]
+                                                                        }
+                                                                    ]
+                                             },
+                                    "tags":  [
+                                                 "env:demo",
+                                                 "project:smiot",
+                                                 "safety:read-only",
+                                                 "scenario:soil-humidity-flatline",
+                                                 "service:smiot-smart-farm"
+                                             ],
+                                    "updatedAt":  "2026-11-10T08:05:52.805771Z"
+                                },
+                 "relationships":  {
+                                       "creator":  {
+                                                       "data":  {
+                                                                    "id":  "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+                                                                    "type":  "users"
+                                                                }
+                                                   },
+                                       "owner":  {
+                                                     "data":  {
+                                                                  "id":  "92c5d45e-0b70-4b11-92d4-6cec4993965b",
+                                                                  "type":  "users"
+                                                              }
+                                                 }
+                                   }
+             }
+}

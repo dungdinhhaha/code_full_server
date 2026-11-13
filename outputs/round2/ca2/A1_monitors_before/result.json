@@ -1,0 +1,21 @@
+{
+  "step": "A1_monitors_before",
+  "utc": "2026-11-06T02:36:19Z",
+  "ict": "2026-11-06T09:36:19+07:00",
+  "monitors": [
+    {"id": 339977691, "name": "SMIOT | greenhouse_a Node 2 soil humidity flatline (synthetic demo)", "status": "OK", "role": "Ca 2"},
+    {"id": 340356283, "name": "SMIOT | EC2 app service inactive", "status": "OK", "role": "Ca 3"},
+    {"id": 339977703, "name": "SMIOT | greenhouse_a telemetry stale", "status": "OK", "role": "doi chieu stale"},
+    {"id": 339990226, "name": "SMIOT | MongoDB dependency unhealthy", "status": "OK", "role": "Mongo"},
+    {"id": 339990232, "name": "SMIOT | MQTT dependency unhealthy", "status": "OK", "role": "MQTT"},
+    {"id": 341409441, "name": "[SMIOT][Ca 1] UI bao OFFLINE nhung mau van vao MongoDB (status mismatch)", "status": "OK", "role": "Ca 1, chi doc"}
+  ],
+  "five_monitors_ok": true,
+  "workflow_18d1b008": {
+    "total_instances": 14,
+    "succeeded": 10,
+    "failed": 4,
+    "most_recent": {"instanceId": "121c05b3-8c58-489e-9c5a-d8f3e55a2f22", "start": "2026-11-03T13:39:53Z", "status": "Success"}
+  },
+  "incident_page": {"url": "https://13-238-30-218.sslip.io/incident", "result": "redirect to /login, khong dang nhap, chua dem duoc ban ghi", "expected_old_records": 2}
+}

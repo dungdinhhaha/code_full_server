@@ -487,6 +487,17 @@ def main() -> int:
                                                 status="success", disposition="hold_already_latched_duplicate_suppressed",
                                                 command_id=hold_command_id,
                                             )
+                                            # Ghi nhan HOLD da ack cho su co moi (HOLD da duoc giu tren PLC ao),
+                                            # de ho so co moc "Vao an toan" thay vi de trong.
+                                            from service.operational_evidence import record_action_event
+                                            record_action_event({
+                                                "command_id": hold_command_id, "action": "HOLD",
+                                                "incident_id": incident_id, "monitor_id": MONITOR_ID,
+                                                "workflow_id": WORKFLOW_ID, "execution_id": instance_id,
+                                                "source": "datadog_safe_mode_workflow",
+                                                "reason": "duplicate workflow suppressed: HOLD already latched on virtual PLC",
+                                                "target": "smiot_virtual_plc", "farm_key": "greenhouse_a", "node_id": 2,
+                                            }, "acknowledged")
                                         except Exception as exc:
                                             print(f"Could not persist workflow outcome on incident: {type(exc).__name__}", flush=True)
                                     print(f"Datadog workflow {instance_id} succeeded while monitor is Alert; HOLD is already active, so duplicate command was suppressed", flush=True)

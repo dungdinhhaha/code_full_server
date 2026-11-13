@@ -1,8 +1,73 @@
-"""Public read-only crop-lot page opened from the customer QR code."""
+"""Public read-only crop-lot page opened from the customer QR code.
+
+No login, no sidebar. Dates shown here are planned (dự kiến) or as recorded in the
+seasonal file; the page makes no claim about quality or yield.
+"""
+
+import logging
+from datetime import date, datetime, timedelta
 
 from nicegui import ui
 
+from components.theme import THEME_CSS, THEME_FONTS
+from components.ui_kit import page_header, panel, sim_badge, stat, stats, state_panel
+from service.farm_registry import FARM_LABELS
 from service.traceability import STAGE_LABELS, customer_lot_by_token
+
+LOGGER = logging.getLogger(__name__)
+
+LOT_CSS = """
+html,body{overflow:auto!important}
+.lot-wrap{width:100%;max-width:560px;margin:0 auto;padding:16px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px}
+.lot-wrap .sm-panel{min-width:0}
+.lot-strip{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:480px){.lot-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lot-stage{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lot-img{width:100%;height:180px;object-fit:cover;border-radius:var(--sm-r-s);border:1px solid var(--sm-net-soft);display:block}
+.lot-img-empty{width:100%;height:180px;box-sizing:border-box;border-radius:var(--sm-r-s);border:1px dashed var(--sm-net);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--sm-ink-3)}
+.lot-stage-name{font-size:14px;font-weight:600;color:var(--sm-ink)}
+.lot-stage-date{font-size:12px;color:var(--sm-ink-3)}
+.lot-foot{font-size:12px;color:var(--sm-ink-3);margin:4px 0 0}
+"""
+
+
+def _fmt_date(value):
+    """dd/mm/yyyy for a real date, None otherwise."""
+    if isinstance(value, (date, datetime)):
+        return value.strftime("%d/%m/%Y")
+    return None
+
+
+def _int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _harvest_window(fruit, days_min, days_max):
+    """Planned inspection window from the fruit-set date. (None, None) when any input is missing."""
+    lo, hi = _int(days_min), _int(days_max)
+    if not isinstance(fruit, (date, datetime)) or lo is None or hi is None:
+        return None, None
+    return _fmt_date(fruit + timedelta(days=lo)), _fmt_date(fruit + timedelta(days=hi))
+
+
+def _stage_card(item):
+    code = str(item.get("stage_code") or item.get("stage") or "")
+    label = item.get("stage_label") or STAGE_LABELS.get(code) or code or "Giai đoạn"
+    at = _fmt_date(item.get("stage_at"))
+    if item.get("date_kind") == "forecast":
+        date_text = f"Dự kiến: {at}" if at else "Chưa có ngày dự kiến"
+    else:
+        date_text = f"Ngày ghi nhận: {at}" if at else "Chưa có ngày ghi nhận"
+    with ui.element("div").classes("lot-stage"):
+        if item.get("image_url"):
+            ui.image(item["image_url"]).classes("lot-img")
+        else:
+            ui.label("Chưa có ảnh").classes("lot-img-empty")
+        ui.label(label).classes("lot-stage-name")
+        ui.label(date_text).classes("lot-stage-date")
 
 
 @ui.page("/lot/{token}")
@@ -10,41 +75,43 @@ def public_lot_page(token: str):
     try:
         lot = customer_lot_by_token(token)
     except Exception:
+        LOGGER.warning("public lot lookup failed", exc_info=True)
         lot = None
-    if not lot:
-        with ui.column().classes("w-full min-h-screen items-center justify-center bg-slate-50 p-8"):
-            ui.label("Không tìm thấy hồ sơ lô.").classes("text-2xl font-bold text-slate-800")
-            ui.label("Mã QR có thể đã hết hiệu lực.").classes("text-slate-500")
-        return
 
-    ui.add_head_html("""<meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>body{background:#f7faf9}.lot-image{width:100%;height:280px;object-fit:cover;border-radius:14px}
-    @media(max-width:640px){.lot-image{height:230px}}</style>""")
-    with ui.column().classes("w-full max-w-6xl mx-auto gap-5 p-4 md:p-8"):
-        with ui.row().classes("w-full items-center gap-3"):
-            ui.label("🍈").classes("text-3xl")
-            with ui.column().classes("gap-0"):
-                ui.label("Hồ sơ dưa lưới").classes("text-2xl font-bold text-slate-900")
-                ui.label(f"{lot.get('crop_name', 'Dưa lưới')} · {lot['lot_id']}").classes("text-slate-500")
-        fruit_set_at = lot.get("fruit_set_at")
-        if fruit_set_at:
-            with ui.row().classes("w-full rounded-2xl bg-white border border-slate-200 p-4 gap-8 flex-wrap"):
-                ui.label(f"Đậu quả: {fruit_set_at.strftime('%d/%m/%Y')}").classes("font-semibold text-slate-800")
-                ui.label(f"Khoảng theo dõi: ngày {lot.get('harvest_days_min', 33)}–{lot.get('harvest_days_max', 45)} sau đậu quả").classes("text-slate-600")
-        ui.label("Các giai đoạn phát triển").classes("text-lg font-bold text-slate-800 mt-2")
-        images = lot.get("stage_images", [])
-        if not images:
-            ui.label("Lô chưa có ảnh theo giai đoạn.").classes("rounded-xl bg-white p-5 text-slate-500")
-        else:
-            with ui.element("div").style("display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;width:100%"):
-                for item in images:
-                    stage = item.get("stage_code", item.get("stage", ""))
-                    label = item.get("stage_label") or STAGE_LABELS.get(stage, stage)
-                    at = item.get("stage_at")
-                    date_text = at.strftime("%d/%m/%Y") if at else "Chưa có ngày"
-                    date_kind = item.get("date_kind", "recorded")
-                    with ui.column().classes("rounded-2xl bg-white border border-slate-200 p-3 gap-2"):
-                        ui.image(item["image_url"]).classes("lot-image")
-                        ui.label(label).classes("font-bold text-slate-800")
-                        ui.label(f"{'Dự kiến' if date_kind == 'forecast' else 'Ngày ghi nhận'}: {date_text}").classes("text-sm text-slate-500")
-        ui.label("Thông tin lô được cập nhật theo hồ sơ mùa vụ.").classes("text-xs text-slate-400 mt-3")
+    ui.add_head_html(
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<style>{THEME_FONTS}{THEME_CSS}{LOT_CSS}</style>"
+    )
+
+    with ui.element("main").classes("lot-wrap"):
+        if not lot:
+            state_panel("error", "Không tìm thấy lô này", "Kiểm tra lại mã QR.")
+            return
+
+        farm = FARM_LABELS.get(str(lot.get("farm_key", "")), "")
+        crop = str(lot.get("crop_name") or "Dưa lưới")
+        page_header(f"Lô {lot.get('lot_id', '')}", " · ".join(x for x in (crop, farm) if x))
+
+        fruit = lot.get("fruit_set_at")
+        fruit_text = _fmt_date(fruit)
+        start_text, end_text = _harvest_window(fruit, lot.get("harvest_days_min"), lot.get("harvest_days_max"))
+        with stats():
+            stat("Ngày đậu quả", fruit_text, meta="Theo hồ sơ mùa vụ")
+            stat("Dự kiến kiểm tra từ", start_text,
+                 meta="Ngày dự kiến" if start_text else "Chưa có ngày dự kiến")
+            stat("Dự kiến kiểm tra đến", end_text,
+                 meta="Ngày dự kiến" if end_text else "Chưa có ngày dự kiến")
+
+        with panel("Các giai đoạn phát triển"):
+            images = lot.get("stage_images") or []
+            if not images:
+                ui.label("Chưa có ảnh").classes("lot-img-empty")
+            else:
+                with ui.element("div").classes("lot-strip"):
+                    for item in images:
+                        _stage_card(item)
+
+        if lot.get("simulated") is True:
+            sim_badge("Dữ liệu mô phỏng")
+
+        ui.label("Thông tin lô được cập nhật theo hồ sơ mùa vụ. Các ngày kiểm tra là dự kiến.").classes("lot-foot")

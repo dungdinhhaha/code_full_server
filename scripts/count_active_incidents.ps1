@@ -1,0 +1,6 @@
+$ErrorActionPreference='Stop'
+$j=Join-Path $env:TEMP ('smiot-count-active-' + [guid]::NewGuid().ToString('N') + '.json')
+$py='import os,json; from dotenv import load_dotenv; load_dotenv("/etc/smiot/app.env"); from service.mongodb_store import collection; c=collection("operational_incidents"); print(json.dumps({"total":c.count_documents({"status":{"$in":["open","holding","recovering"]}}),"by_farm":list(c.aggregate([{"$match":{"status":{"$in":["open","holding","recovering"]}}},{"$group":{"_id":"$farm_key","count":{"$sum":1}}}]))},default=str))'
+$cmds=@('set -e','cd /opt/smiot','export PYTHONPATH=/opt/smiot',"/opt/smiot/.venv/bin/python -c '$py'")
+(@{commands=$cmds}|ConvertTo-Json -Compress)|Set-Content -Encoding ascii $j
+$id=(aws ssm send-command --profile aws-moi --region ap-southeast-2 --instance-ids i-00bf2d3591d3ee0a2 --document-name AWS-RunShellScript --parameters file://$j --comment 'SMIOT count active incidents' --query Command.CommandId --output text).Trim(); do {Start-Sleep 3;$r=aws ssm get-command-invocation --profile aws-moi --region ap-southeast-2 --command-id $id --instance-id i-00bf2d3591d3ee0a2 --output json|ConvertFrom-Json;if($r.Status -in @('Success','Failed','Cancelled','TimedOut')){Write-Output $r.StandardOutputContent;break}}while($true); Remove-Item $j -Force -ErrorAction SilentlyContinue

@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "author": "SMIOT Course Demo",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 150, "left": 20, "attrs": {} },
+    { "type": "wokwi-resistor", "id": "r0", "top": -210, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": -120, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": -30, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": 60, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r4", "top": 150, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r5", "top": 240, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "r6", "top": 330, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-resistor", "id": "rhold", "top": 420, "left": 190, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "out0", "top": -210, "left": 320, "attrs": { "color": "green", "label": "PUMP 1 (VIRTUAL)" } },
+    { "type": "wokwi-led", "id": "out1", "top": -120, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit1" } },
+    { "type": "wokwi-led", "id": "out2", "top": -30, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit2" } },
+    { "type": "wokwi-led", "id": "out3", "top": 60, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit3" } },
+    { "type": "wokwi-led", "id": "out4", "top": 150, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit4" } },
+    { "type": "wokwi-led", "id": "out5", "top": 240, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit5" } },
+    { "type": "wokwi-led", "id": "out6", "top": 330, "left": 320, "attrs": { "color": "green", "label": "PUMP OUTPUT bit6" } },
+    { "type": "wokwi-led", "id": "hold", "top": 420, "left": 320, "attrs": { "color": "red", "label": "SAFE HOLD" } },
+    { "type": "wokwi-buzzer", "id": "buzzer", "top": 530, "left": 320, "attrs": {} },
+    { "type": "wokwi-text", "id": "label", "top": 620, "left": 320, "attrs": { "text": "All seven app pump bits have LED feedback. HOLD turns all outputs off. Buzzer confirms command. Simulation only." } }
+  ],
+  "connections": [
+    [ "esp:D23", "r0:1", "green", [] ], [ "r0:2", "out0:A", "green", [] ], [ "out0:C", "esp:GND.1", "black", [] ],
+    [ "esp:D22", "r1:1", "green", [] ], [ "r1:2", "out1:A", "green", [] ], [ "out1:C", "esp:GND.1", "black", [] ],
+    [ "esp:D21", "r2:1", "green", [] ], [ "r2:2", "out2:A", "green", [] ], [ "out2:C", "esp:GND.1", "black", [] ],
+    [ "esp:D19", "r3:1", "green", [] ], [ "r3:2", "out3:A", "green", [] ], [ "out3:C", "esp:GND.1", "black", [] ],
+    [ "esp:D18", "r4:1", "green", [] ], [ "r4:2", "out4:A", "green", [] ], [ "out4:C", "esp:GND.1", "black", [] ],
+    [ "esp:D17", "r5:1", "green", [] ], [ "r5:2", "out5:A", "green", [] ], [ "out5:C", "esp:GND.1", "black", [] ],
+    [ "esp:D16", "r6:1", "green", [] ], [ "r6:2", "out6:A", "green", [] ], [ "out6:C", "esp:GND.1", "black", [] ],
+    [ "esp:D25", "rhold:1", "red", [] ], [ "rhold:2", "hold:A", "red", [] ], [ "hold:C", "esp:GND.1", "black", [] ],
+    [ "esp:D26", "buzzer:1", "orange", [] ], [ "buzzer:2", "esp:GND.1", "black", [] ]
+  ],
+  "serialMonitor": { "display": "auto", "newline": "lf", "convertEol": true }
+}
+

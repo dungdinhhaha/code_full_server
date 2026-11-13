@@ -1,0 +1,108 @@
+{
+  "datadog_site": "US1",
+  "workflows": [
+    {
+      "title": "Verify PLC safety trip evidence",
+      "steps": 5,
+      "handle": "smiot-w01-plc-safety-trip",
+      "monitor": "342734303",
+      "id": "b9e72b04-1580-45f8-ae1e-628124a19065",
+      "limitation": "Metric producer exists in code but this monitor is currently No Data; deployment/ingest not yet verified.",
+      "case": "W1",
+      "published": true
+    },
+    {
+      "title": "Confirm local sensor interlock",
+      "steps": 5,
+      "handle": "smiot-ca2-confirm-local-interlock",
+      "monitor": "342585819",
+      "id": "2f9a3c1d-5292-4bc3-b4b9-cc03d4172724",
+      "limitation": "Published and linked; only read-only evidence check; does not send HOLD/CLEAR.",
+      "case": "W2",
+      "published": true
+    },
+    {
+      "title": "Guarded EC2 app recovery",
+      "steps": 1,
+      "handle": "smiot-guarded-ec2-recovery",
+      "monitor": "342585838",
+      "id": "373ed0c0-4509-4fcd-a067-f54f0becc00e",
+      "limitation": "AWS connection test and safe DryRun were previously confirmed; actual service-down start branch remains unverified.",
+      "case": "W3",
+      "published": true
+    },
+    {
+      "title": "Refuse restart while samples are fresh",
+      "steps": 5,
+      "handle": "smiot-ca1-refuse-restart-1",
+      "monitor": "342585836",
+      "id": "ffd62026-6b63-40e4-9b46-6ac18d2d584f",
+      "limitation": "Published and linked; positive refusal branch and automatic monitor-triggered run remain unverified.",
+      "case": "W4",
+      "published": true
+    },
+    {
+      "title": "Root cause dependency triage",
+      "steps": 5,
+      "handle": "smiot-w05-root-cause-triage",
+      "monitor": "342585827, 342585828",
+      "id": "d3f0705e-2cbd-430a-9a3a-b1fd02a42cc9",
+      "limitation": "Read-only dependency/signal correlation; no service restart.",
+      "case": "W5",
+      "published": true
+    },
+    {
+      "title": "Detector heartbeat review",
+      "steps": 5,
+      "handle": "smiot-w06-detector-heartbeat",
+      "monitor": "manual only",
+      "id": "d8e1b3db-1a54-4b4f-9be3-bf7e270a86f3",
+      "limitation": "Current metric is emitted after successful finding evaluation, not a periodic liveness heartbeat; cannot detect/restart a dead detector.",
+      "case": "W6",
+      "published": true
+    },
+    {
+      "title": "Irrigation schedule evidence review",
+      "steps": 5,
+      "handle": "smiot-w07-irrigation-schedule-review",
+      "monitor": "342585835",
+      "id": "bb86206c-6df8-4b1d-8016-175a2fc62e49",
+      "limitation": "Human review only; no approved crop-stage envelope, so it never edits schedule.",
+      "case": "W7",
+      "published": true
+    },
+    {
+      "title": "Crop climate and EC evidence review",
+      "steps": 5,
+      "handle": "smiot-w08-crop-risk-review",
+      "monitor": "342585831",
+      "id": "593a670c-d59c-4104-8658-df260245a21e",
+      "limitation": "Human review only; VPD/EC thresholds not approved; no ventilation/drainage/spray action.",
+      "case": "W8",
+      "published": true
+    },
+    {
+      "title": "Actuator acknowledgement verification",
+      "steps": 5,
+      "handle": "smiot-w09-actuator-ack-verify",
+      "monitor": "342734743",
+      "id": "47e95b24-db40-4cd5-b667-5b90e170b667",
+      "limitation": "Dedicated monitor is currently No Data until the updated app is deployed and emits the new metric; no auto retry.",
+      "case": "W9",
+      "published": true
+    },
+    {
+      "title": "AI failure safety verification",
+      "steps": 5,
+      "handle": "smiot-w10-ai-failure-safety",
+      "monitor": "342585824",
+      "id": "50b3dc85-dd20-4220-bda1-ec78d2a3d00f",
+      "limitation": "AI latency monitor is currently No Data; provider-failure metric is local-code-only until deployment; verify app HOLD manually.",
+      "case": "W10",
+      "published": true
+    }
+  ],
+  "count_published": 10,
+  "dispatcher_workflow_0": "Excluded; plan defines #0 outside the 10 business workflows",
+  "checked_at_utc": "2026-11-09T18:15:00Z"
+}

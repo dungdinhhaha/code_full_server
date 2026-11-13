@@ -1,0 +1,22 @@
+[0m[1mdatadog_monitor.core["ai_latency"]: Refreshing state... [id=342585824][0m
+[0m[1mdatadog_monitor.core["samples_persisted"]: Refreshing state... [id=342585823][0m
+[0m[1mdatadog_monitor.core["soil_humidity"]: Refreshing state... [id=342585835][0m
+[0m[1mdatadog_monitor.core["plc_latency"]: Refreshing state... [id=342585825][0m
+[0m[1mdatadog_monitor.core["ingest_lag"]: Refreshing state... [id=342585822][0m
+[0m[1mdatadog_monitor.core["mqtt"]: Refreshing state... [id=342585828][0m
+[0m[1mdatadog_monitor.core["mongo"]: Refreshing state... [id=342585827][0m
+[0m[1mdatadog_monitor.core["w8_review_required"]: Refreshing state... [id=343594185][0m
+[0m[1mdatadog_monitor.detector_heartbeat: Refreshing state... [id=343029221][0m
+[0m[1mdatadog_monitor.core["w7_review_required"]: Refreshing state... [id=343594187][0m
+[0m[1mdatadog_monitor.core["systemd"]: Refreshing state... [id=342585838][0m
+[0m[1mdatadog_monitor.core["air_temperature"]: Refreshing state... [id=342585830][0m
+[0m[1mdatadog_monitor.core["flatline"]: Refreshing state... [id=342585819][0m
+[0m[1mdatadog_monitor.core["stale"]: Refreshing state... [id=342585831][0m
+[0m[1mdatadog_monitor.core["status_mismatch"]: Refreshing state... [id=342585836][0m
+[0m[1mdatadog_monitor.core["soil_temperature"]: Refreshing state... [id=342585837][0m
+[0m[1mdatadog_monitor.core["fresh"]: Refreshing state... [id=342585820][0m
+
+[0m[1m[32mNo changes.[0m[1m Your infrastructure matches the configuration.[0m
+
+[0mTerraform has compared your real infrastructure against your configuration
+and found no differences, so no changes are needed.

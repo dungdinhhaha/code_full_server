@@ -1,0 +1,1 @@
+Không có ảnh lúc Alert. Không chụp được màn hình monitor vì trang Datadog monitor mở trực tiếp bị trắng, và không chụp được /incident vì phải đăng nhập. Bằng chứng là result.json lấy từ Datadog MCP, với timestamp của monitor. Người dùng cần chụp ảnh monitor Alert và trang /incident nếu cần bằng chứng hình ảnh.
