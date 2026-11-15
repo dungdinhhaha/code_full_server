@@ -687,16 +687,15 @@ def extract_recovery_evidence(incident: dict[str, Any], events: list[dict[str, A
             "verification": incident.get("recovery_verification")}
 
 
-def _gap_in_incident(event: dict[str, Any], recovered: datetime | None) -> bool:
-    """Khoang thieu mau chi tinh cho su co khi bat dau truoc luc phuc hoi.
-
-    Cua so lay du lieu keo dai them sau phuc hoi de co mau "sau phuc hoi"; mot khoang thieu mau
-    xay ra sau do (vi du ca khac) khong thuoc su co nay.
-    """
-    if recovered is None:
-        return True
-    start = _utc(event.get("gap_start")) or _utc(event.get("ts"))
-    return start is None or start <= recovered
+def _gap_in_incident(event: dict[str, Any], fault_start: datetime | None,
+                     recovered: datetime | None, now: datetime) -> bool:
+    """Chi tinh phan khoang thieu mau giao voi thoi gian su co, bo phan dem truoc/sau."""
+    gap_start = _utc(event.get("gap_start")) or _utc(event.get("ts"))
+    gap_end = _utc(event.get("gap_end"))
+    lower = fault_start or datetime.min.replace(tzinfo=timezone.utc)
+    upper = recovered or now
+    return bool(gap_start and gap_end and gap_end > gap_start
+                and max(gap_start, lower) < min(gap_end, upper))
 
 
 def compute_impact(incident: dict[str, Any], events: list[dict[str, Any]],
@@ -729,11 +728,22 @@ def compute_impact(incident: dict[str, Any], events: list[dict[str, Any]],
         ongoing = recovered is None
         if end is not None:
             unreliable_seconds, basis = _seconds(fault_start, end), "từ lúc bắt đầu đứng số đến phục hồi/mẫu lỗi cuối"
+    elif kind == "service_down" and (
+        not incident.get("farm_key") or incident.get("farm_key") == "_system"
+        or incident.get("node_id") is None
+    ):
+        unreliable_seconds, basis = None, "không áp dụng: sự cố hệ thống không gắn farm/node"
     elif kind == "service_down":
-        gaps = [float(e.get("gap_seconds") or 0) for e in events
-                if e.get("kind") == "telemetry_gap" and _gap_in_incident(e, recovered)]
+        gaps = []
+        for e in events:
+            if e.get("kind") != "telemetry_gap" or not _gap_in_incident(e, fault_start, recovered, now):
+                continue
+            gap_start = _utc(e.get("gap_start")) or _utc(e.get("ts")); gap_end = _utc(e.get("gap_end"))
+            lower = max(gap_start, fault_start) if fault_start else gap_start
+            upper = min(gap_end, recovered or now)
+            gaps.append(max(0.0, (upper - lower).total_seconds()))
         if gaps:
-            unreliable_seconds, basis = round(sum(gaps), 1), "tổng khoảng thiếu mẫu trong Mongo"
+            unreliable_seconds, basis = round(sum(gaps), 1), "phần khoảng thiếu mẫu nằm trong thời gian sự cố"
     elif kind == "false_offline" and fault_start is not None and recovered is not None:
         unreliable_seconds = _seconds(fault_start, recovered)
         basis = "thời gian trạng thái online/offline không đáng tin (dữ liệu mẫu vẫn vào Mongo)"
@@ -753,8 +763,13 @@ def compute_impact(incident: dict[str, Any], events: list[dict[str, Any]],
         "unreliable_ongoing": ongoing,
         "false_restart_count": int(restarts) if isinstance(restarts, (int, float)) else None,
         "lots_to_review": len(affected_lots) if affected_lots is not None else None,
-        "missing_sample_gaps": sum(1 for e in events
-                                   if e.get("kind") == "telemetry_gap" and _gap_in_incident(e, recovered)),
+        "missing_sample_gaps": (
+            None if kind == "service_down" and (
+                not incident.get("farm_key") or incident.get("farm_key") == "_system"
+                or incident.get("node_id") is None
+            ) else sum(1 for e in events if e.get("kind") == "telemetry_gap"
+                       and _gap_in_incident(e, fault_start, recovered, now))
+        ),
     }
 
 
@@ -857,7 +872,8 @@ def build_incident_timeline(incident_id: str, *, pre_minutes: int = DEFAULT_PRE_
         for k in ("gap_start", "gap_end"):
             if k in e:
                 e[k] = _utc(e[k])
-    telemetry_queried = bool(incident.get("farm_key") and window_start is not None)
+    telemetry_queried = bool(incident.get("farm_key") and incident.get("farm_key") != "_system"
+                             and incident.get("node_id") is not None and window_start is not None)
     events = add_trailing_gap(events, window_end, now, sample_interval_seconds, window_start, telemetry_queried)
 
     lot_start = fault_start_of(incident, events)

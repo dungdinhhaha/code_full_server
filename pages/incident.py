@@ -626,6 +626,10 @@ def _quality_series(inc: dict[str, Any], evs: list[dict[str, Any]]) -> dict[str,
     biet gia tri loi (observed_fault.value) hoac la false_offline (moi mau deu hop le theo dinh nghia).
     """
     kind = inc.get("kind")
+    if kind == "service_down" and (not inc.get("farm_key") or inc.get("farm_key") == "_system" or inc.get("node_id") is None):
+        return {"known": False, "split_known": False, "labels": [], "series": {k: [] for k in QUALITY_KEYS},
+                "totals": {k: None for k in QUALITY_KEYS},
+                "note": "Không áp dụng: sự cố cấp dịch vụ không gắn farm/node; xem thời gian gián đoạn và health check."}
     fault_value = _as_float((inc.get("observed_fault") or {}).get("value"))
     known = bool(inc.get("farm_key")) and (_as_utc(inc.get("fault_started_at")) or _as_utc(inc.get("opened_at"))) is not None
     if not known:
@@ -698,6 +702,15 @@ def build_impact_chart_data(incident: dict[str, Any] | None, events: list[dict[s
     imp = impact or {}
 
     hours = _as_float(imp.get("unreliable_hours"))
+    if inc.get("kind") == "service_down" and (not inc.get("farm_key") or inc.get("farm_key") == "_system" or inc.get("node_id") is None):
+        seconds = _as_float(imp.get("recovery_seconds"))
+        duration = f"{int(seconds // 60)} phút {int(seconds % 60)} giây" if seconds is not None else None
+        return {"quality": _quality_series(inc, evs), "cards": [
+            {"label": "Dịch vụ gián đoạn", "value": duration, "unit": "", "note": "Từ lúc phát hiện đến lúc phục hồi"},
+            {"label": "Farm/node liên quan", "value": None, "unit": "", "note": "Sự cố hệ thống; hồ sơ không gắn farm/node"},
+            {"label": "Dữ liệu trang trại không đáng tin", "value": None, "unit": "", "note": "Không kết luận từ cửa sổ telemetry ngoài thời gian sự cố"},
+            {"label": "Khoảng thiếu mẫu trang trại", "value": None, "unit": "", "note": "Không áp dụng khi hồ sơ không gắn node telemetry"},
+        ]}
     basis_parts = [str(imp["unreliable_basis"])] if imp.get("unreliable_basis") else []
     if imp.get("unreliable_ongoing"):
         basis_parts.append("đang tiếp diễn")
@@ -1910,8 +1923,12 @@ def _phase_investigate(inc: dict[str, Any], tl: dict[str, Any], dd: dict[str, An
             stat("Workflow ghi trong hồ sơ", runs if runs else 0, None,
                  f"workflow {_short(_workflow_id(inc, False) or '', 8)}" if _workflow_id(inc, False)
                  else "Hồ sơ chưa ghi workflow")
-            stat("Kết quả gần nhất", " / ".join(str(x) for x in (inc.get("last_workflow_status"), result_label) if x) or None,
-                 None, result_code or ("Chưa có lần chạy" if not runs else None))
+            latest_run = st["observations"][-1] if st["observations"] else {}
+            latest_disposition = inc.get("last_workflow_disposition") or latest_run.get("decision_code") or latest_run.get("disposition")
+            latest_status = inc.get("last_workflow_status") or latest_run.get("status")
+            latest_label, latest_code = disposition_label(latest_disposition)
+            stat("Kết quả gần nhất", " / ".join(str(x) for x in (latest_status, latest_label) if x) or None,
+                 None, latest_code or ("Chưa có lần chạy" if not runs else None))
         # Log
         if not keys_missing:
             _block_title("Log gần nhất có mã sự cố (Datadog)")
@@ -1945,7 +1962,7 @@ def _phase_investigate(inc: dict[str, Any], tl: dict[str, Any], dd: dict[str, An
                         ext_link(_short(str(ex), 8), f"{DD_BASE}/workflow/{quote(str(wf))}?instance={quote(str(ex))}")
                     else:
                         ui.label("—")
-                code = o.get("disposition")
+                code = o.get("disposition") or o.get("decision_code")
                 shown = disposition_label(code)[0] or "—"
                 rows_out.append([fmt_time(o.get("observed_at")), run_link, str(o.get("status") or "—"), shown])
             _table(["Ghi lúc", "Lần chạy", "Trạng thái", "Cách xử lý"], rows_out, 460)
@@ -1956,15 +1973,20 @@ def _phase_investigate(inc: dict[str, Any], tl: dict[str, Any], dd: dict[str, An
             facts([("Nhà màng", farm_text), ("Node", inc.get("node_id")),
                    ("Lô ảnh hưởng", ", ".join(str(lot.get("lot_id")) for lot in lots if lot.get("lot_id") is not None)
                     or None),
-                   ("Mẫu trong cửa sổ", len(st["points"]))])
-            if not lots:
+                   ("Mẫu trong cửa sổ", len(st["points"]) if has_farm else None)])
+            if not lots and has_farm:
                 ui.label(f"Chưa xác định lô bị ảnh hưởng ({tl.get('affected_lots_status') or UNKNOWN}); không ghép lô khi chưa có quan hệ thật.").classes("sm-note")
+            elif not has_farm:
+                ui.label("Sự cố cấp dịch vụ, không gắn với farm/node; không suy diễn lô hoặc số đo trang trại bị ảnh hưởng.").classes("sm-note")
             if has_farm:
                 ui.link("Mở farm", f"/?farm={quote(str(farm_key), safe='')}").classes("sm-link").style("margin-top:6px;display:inline-block")
             chart = measure_chart_options(inc, events, dd=dd)
             _block_title("Độ ẩm đất quanh thời điểm sự cố: MongoDB (xanh) và Datadog (tím)")
             if chart is None:
-                _missing("mẫu số đo trong cửa sổ sự cố")
+                if not has_farm and kind == "service_down":
+                    ui.label("Không áp dụng biểu đồ độ ẩm đất cho sự cố dịch vụ toàn hệ thống.").classes("sm-note")
+                else:
+                    _missing("mẫu số đo trong cửa sổ sự cố")
             else:
                 ui.echart(chart).classes("sm-chart").style("height:240px")
                 soil = (dd or {}).get("soil_series")
@@ -1994,10 +2016,15 @@ def _phase_respond(inc: dict[str, Any], st: dict[str, Any], events: list[dict[st
                      has_evidence=st["has"][3] or st["has"][4]):
         # Quyet dinh
         _block_title("Quyết định")
-        result_label, result_code = disposition_label(inc.get("last_workflow_disposition"))
+        latest_run = st["observations"][-1] if st["observations"] else {}
+        disposition = (inc.get("last_workflow_disposition") or latest_run.get("decision_code") or latest_run.get("disposition"))
+        result_label, result_code = disposition_label(disposition)
         safe_at = inc.get("safe_at") or impact.get("safe_at")
+        if safe_at is None and latest_run.get("verification_status") == "passed":
+            safe_at = latest_run.get("observed_at")
+        last_action = inc.get("last_action") or ("GUARDED_RECOVERY" if disposition else None)
         facts([("Vào trạng thái an toàn", fmt_time(safe_at) if safe_at else None),
-               ("Hành động gần nhất", inc.get("last_action")),
+               ("Hành động gần nhất", last_action),
                ("Cách xử lý của workflow", result_label)])
         if result_code:
             ui.label(result_code).classes("sm-code")
@@ -2005,6 +2032,8 @@ def _phase_respond(inc: dict[str, Any], st: dict[str, Any], events: list[dict[st
             _table(["Lúc", "Quyết định"], [[fmt_time(e.get("ts")), str(e.get("summary") or "")] for e in st["decisions"][:20]], 420)
             blocked = count_blocked(events)
             ui.label(f"{blocked} đề xuất tưới bị chặn." if blocked else "Không có đề xuất bị chặn trong hồ sơ.").classes("sm-note")
+        elif disposition:
+            ui.label(f"Quyết định phục hồi ghi trong workflow: {disposition}.").classes("sm-note")
         else:
             _missing("quyết định xử lý")
         rule = (inc.get("scenario_response") if kind == "scenario_event" else SAFETY_RULE_BY_KIND.get(kind))
