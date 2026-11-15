@@ -64,6 +64,18 @@ def main() -> int:
     telemetry = db[collection_name]
     ledger = db["action_ledger"]
     now = datetime.now(timezone.utc)
+
+    # Determine which farm/node has the active flatline incident instead of
+    # hardcoding greenhouse_a/node_2.  Prefer the most recently opened one so
+    # a stale closed record does not shadow a live incident.
+    active_inc = db["operational_incidents"].find_one(
+        {"kind": "soil_humidity_flatline", "status": {"$in": ["open", "holding", "recovering"]}},
+        {"farm_key": 1, "node_id": 1},
+        sort=[("opened_at", DESCENDING)],
+    )
+    farm_key: str = str(active_inc["farm_key"]) if active_inc else "greenhouse_a"
+    node_id: int = int(active_inc["node_id"]) if active_inc else 2
+
     # Identify the HOLD by what it IS (target/farm/node/monitor), not by "source".
     # wokwi_datadog_bridge.publish_command tags the *request* with
     # source="datadog_safe_mode_workflow", but the ledger's "acknowledged"
@@ -73,7 +85,7 @@ def main() -> int:
     # never finds the record, so every automatic recovery is refused.
     hold_identity = {
         "action": "HOLD", "state": "acknowledged", "monitor_id": monitor_id,
-        "target": "smiot_virtual_plc", "farm_key": "greenhouse_a", "node_id": 2,
+        "target": "smiot_virtual_plc", "farm_key": farm_key, "node_id": node_id,
     }
     hold = ledger.find_one(
         {**hold_identity, "acknowledged_at": {"$gte": monitor_triggered_at}},
@@ -90,7 +102,7 @@ def main() -> int:
                 {"_id": 1},
             )
             open_incident = db["operational_incidents"].find_one(
-                {"kind": "soil_humidity_flatline", "farm_key": "greenhouse_a", "node_id": 2,
+                {"kind": "soil_humidity_flatline", "farm_key": farm_key, "node_id": node_id,
                  "status": {"$in": ["open", "holding", "recovering"]}},
                 {"_id": 1}, sort=[("opened_at", DESCENDING)],
             )
@@ -168,8 +180,8 @@ def main() -> int:
             # verifier only ever checks greenhouse_a/node 2; without these two
             # fields the caller closed whichever incident its own loop
             # iteration happened to be on, not the one actually verified here.
-            "farm_key": "greenhouse_a",
-            "node_id": 2,
+            "farm_key": farm_key,
+            "node_id": node_id,
             "monitor_state": monitor_state,
             "fresh_normal_samples": previous_count,
             # telemetry_health._valid_flatline_verifier_result requires
@@ -201,9 +213,9 @@ def main() -> int:
     sample_start = max(now - timedelta(seconds=query_window_seconds), hold_ack_at or monitor_triggered_at)
     recent = list(telemetry.find(
         {
-            "meta.farm_key": "greenhouse_a",
+            "meta.farm_key": farm_key,
             "meta.measurement_type": "node",
-            "meta.node_id": 2,
+            "meta.node_id": node_id,
             "source.source": "smiot_demo_stream",
             "source.demo_seed_version": {"$exists": False},
             # Mau cua su co do watchdog mo thuong khong gan incident_id; chap nhan them
@@ -236,7 +248,7 @@ def main() -> int:
         )
     if any(b <= a for a, b in zip(sequences, sequences[1:])):
         client.close()
-        raise RuntimeError("Refusing to clear HOLD: Node 2 sample sequence is not strictly increasing")
+        raise RuntimeError(f"Refusing to clear HOLD: {farm_key}/node_{node_id} sample sequence is not strictly increasing")
     # Use the latest contiguous recovery window, not old samples from earlier
     # in the query range, to evaluate stability and freshness.
     stable = stable[-required_samples:]
@@ -272,8 +284,8 @@ def main() -> int:
         "incident_id": incident_id,
         "monitor_id": monitor_id,
         "target": "smiot_virtual_plc",
-        "farm_key": "greenhouse_a",
-        "node_id": 2,
+        "farm_key": farm_key,
+        "node_id": node_id,
         "synthetic": True,
         "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
     }
@@ -326,7 +338,7 @@ def main() -> int:
                 or ack_data.get("verified") is not True
                 or ack_data.get("action") != "CLEAR"
                 or str(ack_data.get("incident_id") or "") != incident_id
-                or ack_data.get("farm_key") != "greenhouse_a"
+                or ack_data.get("farm_key") != farm_key
                 or ack_data.get("target") != "smiot_virtual_plc"
                 or ack_data.get("synthetic") is not True):
             raise RuntimeError("PLC ACK did not prove the matching CLEAR, readback, and all eight outputs OFF")
@@ -377,8 +389,8 @@ def main() -> int:
             "result": "verified_and_cleared",
             "command_id": command_id,
             # See the matching comment in the already-cleared branch above.
-            "farm_key": "greenhouse_a",
-            "node_id": 2,
+            "farm_key": farm_key,
+            "node_id": node_id,
             "prior_hold_command_id": hold.get("command_id"),
             "monitor_state": monitor_state,
             "fresh_normal_samples": len(stable),
