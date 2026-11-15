@@ -21,7 +21,13 @@ from typing import Any
 from service.datadog_metrics import emit_health_gauge, metric_tags
 from service.telemetry_provenance import parse_datetime
 
-LOGGER = logging.getLogger("smiot.telemetry_health")
+# A bare logging.getLogger() here has no handler anywhere up to the root logger
+# (the app never calls logging.basicConfig()), so every INFO-level call -
+# including the flatline/recovery diagnostics this module exists to produce -
+# was silently dropped; only WARNING+ reached Python's stderr "last resort"
+# handler. Route through the app's own handler setup so operators can see it.
+from service.logger import get_logger
+LOGGER = get_logger("smiot.telemetry_health")
 from service.farm_registry import FARM_KEYS as FARMS
 NODE_STATUSES = ("ONLINE", "STALE", "OFFLINE", "UNKNOWN")
 _thread: threading.Thread | None = None
@@ -265,6 +271,15 @@ def _track_flatline_recovery(farm: str, node_id: int, source: str, values: list[
         return False
     try:
         from service import incident_lifecycle
+        # The verifier always checks greenhouse_a/node 2 regardless of which
+        # farm/node this watchdog tick happened to be polling when the fresh-
+        # sample condition tripped; use the farm/node IT reports (falling back
+        # to this call's own args only for an older verifier that predates
+        # these fields), not the caller's own loop variables, or
+        # close_flatline_incident() rejects a mismatched farm/node and the
+        # already-sent CLEAR never closes the incident it actually cleared.
+        verified_farm = str(details.get("farm_key") or farm)
+        verified_node = int(details.get("node_id") or node_id)
         evidence = {
             "method": "verified_by_recovery_verifier",
             "rule": "matching_incident_monitor_ok_hold_ack_fresh_varying_samples_clear_ack_outputs_off",
@@ -284,7 +299,7 @@ def _track_flatline_recovery(farm: str, node_id: int, source: str, values: list[
             "verified_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         closed = incident_lifecycle.close_flatline_incident(
-            farm, int(node_id), incident_id=str(details["incident_id"]), recovery_evidence=evidence)
+            verified_farm, verified_node, incident_id=str(details["incident_id"]), recovery_evidence=evidence)
     except ValueError:
         return False  # ngoai pham vi ca demo
     except Exception as exc:  # Mongo chua san sang: khong lam hong watchdog

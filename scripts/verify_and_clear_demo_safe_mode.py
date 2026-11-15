@@ -43,8 +43,11 @@ def main() -> int:
     if monitor_state != "OK":
         raise RuntimeError(f"Refusing to clear HOLD: Datadog monitor is {monitor_state}, not OK")
     groups = (monitor_data.get("state") or {}).get("groups") or {}
+    # group.get(key, 0) only supplies 0 when the key is MISSING; Datadog sends
+    # "last_triggered_ts": null for a group that has never triggered, so the
+    # key is present with value None and `or 0` is needed to avoid int(None).
     last_triggered_ts = max(
-        (int(group.get("last_triggered_ts", 0)) for group in groups.values()),
+        (int(group.get("last_triggered_ts") or 0) for group in groups.values()),
         default=0,
     )
     if not last_triggered_ts:
@@ -61,24 +64,26 @@ def main() -> int:
     telemetry = db[collection_name]
     ledger = db["action_ledger"]
     now = datetime.now(timezone.utc)
+    # Identify the HOLD by what it IS (target/farm/node/monitor), not by "source".
+    # wokwi_datadog_bridge.publish_command tags the *request* with
+    # source="datadog_safe_mode_workflow", but the ledger's "acknowledged"
+    # transition is written from the virtual PLC's own ACK payload, which
+    # self-reports its publisher source (e.g. "smiot_demo_stream") and
+    # overwrites that field. Matching on "source" at this stage silently
+    # never finds the record, so every automatic recovery is refused.
+    hold_identity = {
+        "action": "HOLD", "state": "acknowledged", "monitor_id": monitor_id,
+        "target": "smiot_virtual_plc", "farm_key": "greenhouse_a", "node_id": 2,
+    }
     hold = ledger.find_one(
-        {
-            "action": "HOLD",
-            "source": "datadog_safe_mode_workflow",
-            "state": "acknowledged",
-            "monitor_id": monitor_id,
-            "acknowledged_at": {"$gte": monitor_triggered_at},
-        },
+        {**hold_identity, "acknowledged_at": {"$gte": monitor_triggered_at}},
         sort=[("acknowledged_at", DESCENDING)],
     )
     if not hold:
         # Bridge bo qua HOLD trung khi HOLD cu van dang giu (log: "duplicate command was suppressed"),
         # nen alert moi co the khong co ban ghi ack moi. Chap nhan HOLD da ack gan nhat cua monitor
         # CHI KHI chua co CLEAR da xac minh sau do, va gan kiem chung vao su co dang mo.
-        latest = ledger.find_one(
-            {"action": "HOLD", "source": "datadog_safe_mode_workflow", "state": "acknowledged", "monitor_id": monitor_id},
-            sort=[("acknowledged_at", DESCENDING)],
-        )
+        latest = ledger.find_one(hold_identity, sort=[("acknowledged_at", DESCENDING)])
         if latest:
             cleared_after = ledger.find_one(
                 {"action": "CLEAR", "state": "verified", "acknowledged_at": {"$gte": latest.get("acknowledged_at")}},
@@ -120,8 +125,16 @@ def main() -> int:
             previous_range = [float(v) for v in previous_verification["soil_humidity_range_pct"]]
             previous_count = int(previous_verification["sample_count"])
             previous_freshness = float(previous_verification["sample_freshness_seconds"])
-            previous_required = int(previous_verification.get("required_samples", 10))
-            previous_span = float(previous_verification.get("sample_span_seconds", 0))
+            # A CLEAR recorded before this script started saving these two
+            # fields has neither key; defaulting them to 10 / 0 made the
+            # count/span checks below fail for every such pre-existing CLEAR
+            # (previous_count was always < the invented default of 10),
+            # permanently refusing to report a recovery that already happened
+            # and was otherwise fully proven by clear_ack. Fall back to the
+            # record's own sample_count/the 300 s stability bar it must have
+            # already met, instead of a stricter value it never reported.
+            previous_required = int(previous_verification.get("required_samples", previous_count))
+            previous_span = float(previous_verification.get("sample_span_seconds", 300))
         except (TypeError, ValueError, KeyError):
             client.close()
             raise RuntimeError("Refusing to report an already-cleared incident: prior CLEAR lacks complete telemetry proof")
@@ -150,8 +163,24 @@ def main() -> int:
             "result": "already_verified_and_cleared",
             "command_id": previous_clear.get("command_id"),
             "incident_id": incident_id,
+            # The caller (telemetry_health._track_flatline_recovery) runs this
+            # script once per farm/node pair it is itself polling, but this
+            # verifier only ever checks greenhouse_a/node 2; without these two
+            # fields the caller closed whichever incident its own loop
+            # iteration happened to be on, not the one actually verified here.
+            "farm_key": "greenhouse_a",
+            "node_id": 2,
             "monitor_state": monitor_state,
             "fresh_normal_samples": previous_count,
+            # telemetry_health._valid_flatline_verifier_result requires
+            # required_samples/stable_seconds too (it treats a missing
+            # required_samples as 0, which then fails its own ">= 2" check);
+            # the fresh-clear branch below already reports these, so this
+            # branch must match the same shape.
+            "required_samples": previous_required,
+            "stable_seconds": max(60, int(os.getenv("SMIOT_FLATLINE_STABLE_SECONDS", "300"))),
+            "expected_interval_seconds": previous_verification.get(
+                "expected_interval_seconds", max(1, int(os.getenv("SMIOT_SIM_NODE_INTERVAL_SECONDS", "60")))),
             "sample_span_seconds": previous_span,
             "soil_humidity_range_pct": previous_range,
             "newest_sample_at": previous_verification.get("newest_sample_at"),
@@ -314,6 +343,14 @@ def main() -> int:
             "incident_id": incident_id,
             "monitor_state": monitor_state,
             "sample_count": len(stable),
+            # Persisted so a later run's idempotent re-check (which reads this
+            # same "verification" document back from MongoDB) compares the
+            # actual run's own required_samples/span, not a guessed default -
+            # required_samples can be below 10 depending on SMIOT_SIM_NODE_
+            # INTERVAL_SECONDS, and omitting it here made every idempotent
+            # retry fail with "prior CLEAR proof is incomplete or mismatched".
+            "required_samples": required_samples,
+            "sample_span_seconds": round(span_seconds, 1),
             "soil_humidity_range_pct": [min(values), max(values)],
             "newest_sample_at": newest.isoformat(),
             "sample_message_ids": [row.get("source", {}).get("message_id") for row in stable if row.get("source", {}).get("message_id")],
@@ -339,6 +376,9 @@ def main() -> int:
         print(json.dumps({
             "result": "verified_and_cleared",
             "command_id": command_id,
+            # See the matching comment in the already-cleared branch above.
+            "farm_key": "greenhouse_a",
+            "node_id": 2,
             "prior_hold_command_id": hold.get("command_id"),
             "monitor_state": monitor_state,
             "fresh_normal_samples": len(stable),

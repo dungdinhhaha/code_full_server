@@ -38,6 +38,16 @@ from service.logger import get_logger, log_incident_event
 
 
 CASES = {
+    "C1": {
+        "scenario_code": "F1",
+        "scenario_type": "f1_false_offline",
+        "farm_key": "greenhouse_a",
+        "node_id": 1,
+        "monitor_id": "342585836",
+        "workflow_id": "ffd62026-6b63-40e4-9b46-6ac18d2d584f",
+        "kind": "false_offline",
+        "decision": "REJECT_RESTART_DATA_PRESENT",
+    },
     "W3": {
         "scenario_code": "H1",
         "scenario_type": "h1_service_down",

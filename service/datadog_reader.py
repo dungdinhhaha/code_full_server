@@ -199,6 +199,40 @@ def parse_events(payload: Any) -> list[dict[str, Any]]:
     return out[:MAX_EVENTS]
 
 
+# Attributes dropped when building a fallback message: identity/routing noise
+# already shown elsewhere in the row, or duplicated across every structured log line.
+_LOG_SUMMARY_SKIP = {"timestamp", "service", "env", "source", "status", "host"}
+
+
+def _flatten_log_attrs(attrs: dict[str, Any], prefix: str = "") -> list[str]:
+    """{"node": {"id": 2}, "kind": "x"} -> ["node.id=2", "kind=x"], skipping noisy keys."""
+    parts: list[str] = []
+    for key, value in attrs.items():
+        if not prefix and key in _LOG_SUMMARY_SKIP:
+            continue
+        label = f"{prefix}{key}"
+        if isinstance(value, dict):
+            parts.extend(_flatten_log_attrs(value, f"{label}."))
+        elif value is not None:
+            parts.append(f"{label}={value}")
+    return parts
+
+
+def _log_message(attrs: dict[str, Any]) -> str | None:
+    """service.logger.log_incident_event ships structured JSON with no "message" text:
+
+    the Agent's JSON parser promotes every field into attributes instead, so
+    ``attrs["message"]`` is always absent for this stream. Build a readable
+    summary from the attributes themselves rather than dropping the row.
+    """
+    message = attrs.get("message")
+    if message is not None:
+        return str(message)
+    inner = attrs.get("attributes") if isinstance(attrs.get("attributes"), dict) else attrs
+    summary = ", ".join(_flatten_log_attrs(inner))
+    return summary or None
+
+
 def parse_logs(payload: Any) -> dict[str, Any]:
     """Pure: /api/v2/logs/events response -> {rows: [{ts, service, message}], more}."""
     rows: list[dict[str, Any]] = []
@@ -211,10 +245,10 @@ def parse_logs(payload: Any) -> dict[str, Any]:
                 ts = datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp()
             except ValueError:
                 ts = None
-        message = attrs.get("message")
+        message = _log_message(attrs)
         if message is None:
             continue
-        rows.append({"ts": ts, "service": str(attrs.get("service") or ""), "message": str(message)[:140]})
+        rows.append({"ts": ts, "service": str(attrs.get("service") or ""), "message": message[:140]})
     more = bool((((payload or {}).get("meta") or {}).get("page") or {}).get("after"))
     return {"rows": rows[:MAX_LOGS], "more": more}
 
@@ -296,12 +330,16 @@ def read_incident_snapshot(incident: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             result["events_error"] = reason_of(exc)
 
-    # 5. Logs that contain the incident id (Logs list API v2, GET).
+    # 5. Logs that carry the incident id (Logs list API v2, GET).
+    # service.logger.log_incident_event writes the id as nested JSON
+    # ({"incident": {"id": ...}}), which the Agent's log pipeline facets as the
+    # attribute @incident.id rather than keeping it as a plain indexed word (the
+    # hyphenated id does not match a quoted full-text search). Query the facet.
     if incident_id:
         try:
             if over_budget():
                 raise TimeoutError()
-            payload = _get("/api/v2/logs/events", {"filter[query]": f'"{incident_id}"',
+            payload = _get("/api/v2/logs/events", {"filter[query]": f'@incident.id:"{incident_id}"',
                                                    "filter[from]": _iso(start), "filter[to]": _iso(end),
                                                    "sort": "-timestamp", "page[limit]": MAX_LOGS})
             parsed = parse_logs(payload)

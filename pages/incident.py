@@ -280,11 +280,17 @@ def _workflow_links(inc: dict[str, Any], config_fallback: bool = True) -> list[t
 
 
 def _logs_link(inc: dict[str, Any]) -> list[tuple[str, str, str]]:
-    """Tim log theo ma su co (tim van ban, khong doan ten thuoc tinh), kem khung gio cua su co khi co."""
+    """Tim log theo ma su co, kem khung gio cua su co khi co.
+
+    service.logger.log_incident_event ghi ma su co o dang JSON long
+    ({"incident": {"id": ...}}); Agent facet thanh thuoc tinh @incident.id
+    thay vi giu nguyen van ban day du de tim kiem toan van khop (ma co dau
+    gach ngang khong khop tim kiem toan van co ngoac kep). Dung dung thuoc tinh.
+    """
     inc_id = str(inc.get("incident_id") or inc.get("_id") or "")
     if not inc_id:
         return []
-    q = f'"{inc_id}"'
+    q = f'@incident.id:"{inc_id}"'
     url = f"{DD_BASE}/logs?query={quote(q)}"
     window = metric_window(inc)
     if window:
