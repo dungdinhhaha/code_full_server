@@ -141,6 +141,11 @@ def main() -> int:
             "timeline": {"at": now, "event": "datadog_detection", "by": "correlated_runner"},
         }},
     )
+    log_incident_event(incident_id=incident_id, farm_key=cfg["farm_key"],
+                       node_id=cfg["node_id"], kind=cfg["kind"],
+                       scenario_run_id=run_id, monitor_id=cfg["monitor_id"],
+                       workflow_id=cfg["workflow_id"], phase="detected",
+                       synthetic=True)
     evidence = {
         "_id": f"{incident_id}:finding",
         "incident_id": incident_id, "scenario_run_id": run_id,
@@ -181,6 +186,11 @@ def main() -> int:
                            scenario_run_id=run_id, monitor_id=cfg["monitor_id"],
                            workflow_id=cfg["workflow_id"], phase="investigation",
                            synthetic=True)
+        log_incident_event(incident_id=incident_id, farm_key=cfg["farm_key"],
+                           node_id=cfg["node_id"], kind="hold_command",
+                           scenario_run_id=run_id, monitor_id=cfg["monitor_id"],
+                           workflow_id=cfg["workflow_id"], phase="hold_requested",
+                           synthetic=True)
 
     # Use the normal action ledger writer so the same command lifecycle appears
     # in the black-box timeline and in Datadog logs.
@@ -195,6 +205,11 @@ def main() -> int:
                        "reason": cfg["decision"], "synthetic": True, "updated_at": now},
              "$setOnInsert": {"created_at": now}}, upsert=True,
         )
+    log_incident_event(incident_id=incident_id, farm_key=cfg["farm_key"],
+                       node_id=cfg["node_id"], kind="hold_acknowledged",
+                       scenario_run_id=run_id, monitor_id=cfg["monitor_id"],
+                       workflow_id=cfg["workflow_id"], phase="hold_acknowledged",
+                       synthetic=True)
 
     observation = {
         "event": "scenario_observation", "scenario_run_id": run_id,
@@ -213,6 +228,11 @@ def main() -> int:
                               "http_health": True, "dependency_probe": True}}
     record_scenario_observation(recovery, db=db)
     db.action_ledger.update_one({"_id": action_id}, {"$set": {"state": "verified", "verified_at": recovery_at}})
+    log_incident_event(incident_id=incident_id, farm_key=cfg["farm_key"],
+                       node_id=cfg["node_id"], kind="recovery_verification",
+                       scenario_run_id=run_id, monitor_id=cfg["monitor_id"],
+                       workflow_id=cfg["workflow_id"], phase="verifying",
+                       synthetic=True)
     db.operational_incidents.update_one(
         {"_id": incident_id},
         {"$set": {"status": "recovered", "recovered_at": recovery_at,
