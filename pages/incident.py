@@ -1894,6 +1894,9 @@ def _phase_detect(inc: dict[str, Any], dd: dict[str, Any] | None, st: dict[str, 
             elif _monitor_missing(dd) and _case_config(inc).get("monitor_id"):
                 ext_link("Monitor hiện hành của ca (cấu hình ca) ↗",
                          f"{DD_BASE}/monitors/{quote(str(_case_config(inc)['monitor_id']))}")
+            wf = _workflow_id(inc, False)
+            if wf:
+                ext_link("Mở workflow Datadog ↗", f"{DD_BASE}/workflow/{quote(wf)}")
             explorer = [link for link in metric_links(inc) if not link[0].startswith("Dashboard")]
             if explorer:
                 ext_link("Mở metric trong Explorer ↗", explorer[0][1])
