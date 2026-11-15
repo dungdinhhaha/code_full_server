@@ -1,1 +1,0 @@
-{"published":true,"condition":"{{ Steps.verify_smiot_recovery.status }}","expected":200,"workflow_id":"373ed0c0-4509-4fcd-a067-f54f0becc00e"}

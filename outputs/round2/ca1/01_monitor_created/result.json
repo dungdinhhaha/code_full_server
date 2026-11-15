@@ -1,9 +1,0 @@
-{
-  "monitor_id": 341409441,
-  "status_observed": "OK",
-  "query_observed": "max(last_5m):max:smiot.telemetry.status_mismatch{*} by {farm,node} > 0",
-  "groups_observed": ["farm:greenhouse_a,node:1", "farm:greenhouse_a,node:2"],
-  "muted_until_ui": "2026-11-06 06:08 ICT",
-  "workflow_attached": false,
-  "incident_record_created": false
-}

@@ -1,7 +1,0 @@
-T0 = 2026-11-06 02:36:40Z (09:36:40 ICT). Lệnh ghi có chủ đích, người dùng đã cho phép trong yêu cầu chat.
-
-aws ssm send-command --profile aws-moi --region ap-southeast-2 --instance-ids i-00bf2d3591d3ee0a2 --document-name AWS-RunShellScript --parameters file://<scratchpad>\a2_params.json
-Tham số:
-  echo T0_UTC=$(date -u +%FT%TZ)
-  /opt/smiot/.venv/bin/python -X utf8 /opt/smiot/scripts/set_demo_sensor_fault.py flatline; echo EXIT=$?
-aws ssm get-command-invocation --command-id da130ca4-3de3-4dfc-903d-a704c03346da --instance-id i-00bf2d3591d3ee0a2

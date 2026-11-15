@@ -1,1 +1,0 @@
-Không có ảnh trước và sau cho bước này. Trang /incident chuyển sang /login và Haiku không nhập tài khoản. Trang Datadog monitor mở trực tiếp bị trắng, nên trạng thái monitor lấy từ Datadog MCP (JSON), không từ ảnh. Cần người dùng chụp ảnh 5 monitor và /incident nếu cần bằng chứng hình ảnh.

@@ -1,5 +1,0 @@
-Giờ: 2026-11-06 02:43:29Z (09:43:29 ICT). Chỉ đọc.
-
-1) Datadog MCP list_datadog_workflow_instances, workflowId 18d1b008-fb24-4713-aa0b-a1432d84ea80, sort -startTimestamp.
-2) Datadog MCP get_datadog_workflow_instance, workflowId 18d1b008-fb24-4713-aa0b-a1432d84ea80, instanceId e09175ca-6eed-41a7-8dee-9066d3f366ef.
-Không kích workflow thủ công. Lần chạy này do monitor 339977691 kích hoạt.
