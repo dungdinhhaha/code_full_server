@@ -68,13 +68,13 @@
               "aggregator": "last",
               "data_source": "metrics",
               "name": "status_mismatch",
-              "query": "max:smiot.telemetry.status_mismatch{farm:greenhouse_a,node:1}"
+              "query": "max:smiot.telemetry.status_mismatch{farm:${ Trigger.farm_key || 'greenhouse_a' },node:${ Trigger.node_id || '1' }}"
             },
             {
               "aggregator": "last",
               "data_source": "metrics",
               "name": "mongo_sample_age_s",
-              "query": "max:smiot.telemetry.sample_age_seconds{farm:greenhouse_a,node:1}"
+              "query": "max:smiot.telemetry.sample_age_seconds{farm:${ Trigger.farm_key || 'greenhouse_a' },node:${ Trigger.node_id || '1' }}"
             }
           ]
         },
@@ -308,7 +308,7 @@
         },
         {
           "name": "body",
-          "value": "{\"event_id\":\"{{InstanceId}}:refused\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W4 refused restart: status mismatch is present while MongoDB telemetry is fresh. No SSM, EC2, or device action was configured on this workflow path. This records the workflow decision only; confirm the exact incident and monitor history before claiming runtime no-SSM proof.\",\"category\":\"datadog\",\"severity\":\"warning\",\"farm_key\":\"greenhouse_a\",\"node_id\":\"1\",\"monitor_id\":\"342585836\",\"scenario_code\":\"W4_STATUS_MISMATCH\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"refused\",\"decision_code\":\"RESTART_REFUSED_FRESH_MONGO\",\"action_code\":\"NO_SSM_OR_DEVICE_ACTION\",\"verification_status\":\"not_applicable\",\"synthetic\":true}"
+          "value": "{\"event_id\":\"{{InstanceId}}:refused\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"W4 refused restart: status mismatch is present while MongoDB telemetry is fresh. No SSM, EC2, or device action was configured on this workflow path. This records the workflow decision only; confirm the exact incident and monitor history before claiming runtime no-SSM proof.\",\"category\":\"datadog\",\"severity\":\"warning\",\"farm_key\":\"${ Trigger.farm_key || 'greenhouse_a' }\",\"node_id\":\"${ Trigger.node_id || '1' }\",\"monitor_id\":\"342585836\",\"scenario_code\":\"W4_STATUS_MISMATCH\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"refused\",\"decision_code\":\"RESTART_REFUSED_FRESH_MONGO\",\"action_code\":\"NO_SSM_OR_DEVICE_ACTION\",\"verification_status\":\"not_applicable\",\"synthetic\":true}"
         }
       ],
       "readinessGate": {

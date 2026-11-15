@@ -14,7 +14,7 @@ locals {
     status_mismatch = {
       name               = "SMIOT | telemetry status mismatch"
       query              = "max(last_5m):max:smiot.telemetry.status_mismatch{*} by {farm,node} > 0"
-      message            = "UI status disagrees with fresh Mongo telemetry. Investigate farm/node; do not restart the app while samples are fresh.\n\n@workflow-smiot-ca1-refuse-restart-1"
+      message            = "UI status disagrees with fresh Mongo telemetry. Investigate farm/node; do not restart the app while samples are fresh.\n\n@workflow-smiot-ca1-refuse-restart-1(farm_key=\"{{farm.name}}\", node_id=\"{{node.name}}\")"
       tags               = ["signal:status-mismatch", "severity:warning"]
       on_missing_data    = "default"
       critical_threshold = "0"
@@ -30,7 +30,7 @@ locals {
     flatline = {
       name               = "SMIOT | sensor flatline"
       query              = "max(last_5m):max:smiot.telemetry.sensor_flatline{*} by {farm,node} > 0"
-      message            = "Sensor flatline detected for {{farm.name}}/{{node.name}}. Check the sensor and publisher.\n\n@workflow-smiot-ca2-confirm-local-interlock"
+      message            = "Sensor flatline detected for {{farm.name}}/{{node.name}}. Check the sensor and publisher.\n\n@workflow-smiot-ca2-confirm-local-interlock(farm_key=\"{{farm.name}}\", node_id=\"{{node.name}}\")"
       tags               = ["signal:sensor-flatline", "severity:warning"]
       on_missing_data    = "default"
       critical_threshold = "0"

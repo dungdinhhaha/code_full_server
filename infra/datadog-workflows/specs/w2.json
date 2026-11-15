@@ -59,7 +59,7 @@
               "aggregator": "last",
               "data_source": "metrics",
               "name": "flatline",
-              "query": "max:smiot.telemetry.sensor_flatline{farm:greenhouse_a,node:2}"
+              "query": "max:smiot.telemetry.sensor_flatline{farm:${ Trigger.farm_key || 'greenhouse_a' },node:${ Trigger.node_id || '2' }}"
             }
           ]
         },
@@ -259,7 +259,7 @@
         },
         {
           "name": "body",
-          "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"message\":\"Datadog ran workflow {{WorkflowName}}. This workflow is read-only: flatline observation is not HOLD or recovery proof. Correlation remains unverified until the app links the exact incident, farm/node, HOLD ACK, fresh varying Mongo samples, and safe outputs.\",\"category\":\"datadog\",\"severity\":\"warning\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"pending_verification\",\"verification_status\":\"pending\"}"
+          "value": "{\"event_id\":\"{{InstanceId}}\",\"workflow_name\":\"{{WorkflowName}}\",\"workflow_id\":\"{{WorkflowId}}\",\"farm_key\":\"${ Trigger.farm_key || 'greenhouse_a' }\",\"node_id\":\"${ Trigger.node_id || '2' }\",\"message\":\"Datadog ran workflow {{WorkflowName}}. This workflow is read-only: flatline observation is not HOLD or recovery proof. Correlation remains unverified until the app links the exact incident, farm/node, HOLD ACK, fresh varying Mongo samples, and safe outputs.\",\"category\":\"datadog\",\"severity\":\"warning\",\"workflow_run_id\":\"{{InstanceId}}\",\"status\":\"pending_verification\",\"verification_status\":\"pending\"}"
         }
       ],
       "readinessGate": {
