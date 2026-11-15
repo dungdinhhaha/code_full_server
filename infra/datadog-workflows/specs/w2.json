@@ -1,5 +1,19 @@
 {
   "handle": "smiot-ca2-confirm-local-interlock",
+  "inputSchema": {
+    "parameters": [
+      {
+        "name": "farm_key",
+        "type": "STRING",
+        "defaultValue": "greenhouse_a"
+      },
+      {
+        "name": "node_id",
+        "type": "STRING",
+        "defaultValue": "2"
+      }
+    ]
+  },
   "triggers": [
     {
       "monitorTrigger": {

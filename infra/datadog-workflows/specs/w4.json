@@ -6,6 +6,16 @@
         "name": "threshold_seconds",
         "type": "NUMBER",
         "defaultValue": 90
+      },
+      {
+        "name": "farm_key",
+        "type": "STRING",
+        "defaultValue": "greenhouse_a"
+      },
+      {
+        "name": "node_id",
+        "type": "STRING",
+        "defaultValue": "1"
       }
     ]
   },
